@@ -33,8 +33,16 @@ def ensure_runtime_schema():
         return
 
     upload_columns = {column["name"] for column in inspector.get_columns("uploads")}
-    if "clean_text" in upload_columns:
+    if "clean_text" not in upload_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE uploads ADD COLUMN clean_text TEXT"))
+
+    if "user_preferences" not in inspector.get_table_names():
         return
 
-    with engine.begin() as connection:
-        connection.execute(text("ALTER TABLE uploads ADD COLUMN clean_text TEXT"))
+    preference_columns = {
+        column["name"] for column in inspector.get_columns("user_preferences")
+    }
+    if "updated_at" not in preference_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE user_preferences ADD COLUMN updated_at DATETIME"))

@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from db.models import Course, CourseEvent, Upload
+from core.priority_scoring import score_upload_events
+from db.models import Course, CourseEvent, Upload, UserPreference
 from db.session import get_db
 from schemas.clean_text import CleanTextRequest, CleanTextResponse
 from schemas.extraction import CourseRead, UploadCoursesResponse
+from schemas.priority import UploadPriorityScoresResponse
 from service.clean_text_optimize import clean_extracted_text
 from service.extract_academic_events import ExtractionServiceError, extract_academic_events
 from service.extract_from_pdf import extract_text_from_pdf
@@ -44,6 +46,46 @@ async def get_upload_status(
         "has_extracted_text": upload.extracted_text is not None,
         "has_clean_text": upload.clean_text is not None,
     }
+
+
+@router.get("/{upload_id}/courses", response_model=UploadCoursesResponse)
+async def get_upload_courses(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    return UploadCoursesResponse(
+        upload_id=upload.id,
+        courses=[CourseRead.model_validate(course) for course in upload.courses],
+    )
+
+
+@router.get("/{upload_id}/priority-scores", response_model=UploadPriorityScoresResponse)
+async def get_upload_priority_scores(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    preference = (
+        db.query(UserPreference)
+        .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
+        .first()
+    )
+    scores = score_upload_events(upload.courses, preference)
+
+    return UploadPriorityScoresResponse(
+        upload_id=upload.id,
+        preference_id=preference.id if preference else None,
+        scores=scores,
+    )
 
 
 @router.post("/parse-upload/{upload_id}")
@@ -166,6 +208,7 @@ async def extract_upload_courses(
         upload_id=upload.id,
         courses=[CourseRead.model_validate(course)],
     )
+
 
 @router.post("/chunk-upload/{upload_id}")
 async def chunk_upload_text(upload_id: int, db: Session = Depends(get_db)):
