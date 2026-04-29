@@ -7,6 +7,7 @@ from schemas.clean_text import CleanTextRequest, CleanTextResponse
 from service.clean_text_optimize import clean_extracted_text
 from service.extract_from_pdf import extract_text_from_pdf
 from service.pdf_parser import handle_file_upload
+from service.chunk_text import chunk_outline
 
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -87,3 +88,22 @@ async def clean_upload_text(
         raw_text=upload.extracted_text,
         options=options,
     )
+
+@router.post("/chunk-upload/{upload_id}")
+async def chunk_upload_text(upload_id: int, db: Session = Depends(get_db)):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    if not upload.extracted_text:
+        raise HTTPException(
+            status_code=400,
+            detail="No extracted text found for this upload. Parse the PDF first.",
+        )
+
+    chunks = chunk_outline(upload.extracted_text)
+    return {
+        "upload_id": upload.id,
+        "chunks": chunks,
+    }
