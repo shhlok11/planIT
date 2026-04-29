@@ -24,7 +24,7 @@ def extract_text_from_pdf(upload: Upload, db: Session) -> str:
             )
 
         upload.extracted_text = text
-        upload.status = "COMPLETED"
+        upload.status = "PARSED"
         db.commit()
 
         return text

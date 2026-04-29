@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy.orm import relationship
 
 from db.base import Base
 
@@ -17,6 +18,13 @@ class Upload(Base):
     storage_path = Column(String, nullable=False)
 
     status = Column(String, default="UPLOADED", nullable=False)
-    extracted_text = Column(String, nullable=True)
+    extracted_text = Column(Text, nullable=True)
+    clean_text = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    courses = relationship(
+        "Course",
+        back_populates="upload",
+        cascade="all, delete-orphan",
+    )

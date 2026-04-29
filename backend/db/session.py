@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 
@@ -25,3 +25,16 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def ensure_runtime_schema():
+    inspector = inspect(engine)
+    if "uploads" not in inspector.get_table_names():
+        return
+
+    upload_columns = {column["name"] for column in inspector.get_columns("uploads")}
+    if "clean_text" in upload_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE uploads ADD COLUMN clean_text TEXT"))

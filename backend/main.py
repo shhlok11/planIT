@@ -3,11 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.base import Base
 from db.models import Upload
-from db.session import engine
+from db.session import engine, ensure_runtime_schema
 from routers.uploads import router as uploads_router
 
 
 Base.metadata.create_all(bind=engine)
+ensure_runtime_schema()
 
 app = FastAPI(title="Syllabus Architect API", version="1.0.0")
 

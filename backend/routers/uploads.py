@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from db.models import Upload
+from db.models import Course, CourseEvent, Upload
 from db.session import get_db
 from schemas.clean_text import CleanTextRequest, CleanTextResponse
+from schemas.extraction import CourseRead, UploadCoursesResponse
 from service.clean_text_optimize import clean_extracted_text
+from service.extract_academic_events import ExtractionServiceError, extract_academic_events
 from service.extract_from_pdf import extract_text_from_pdf
 from service.pdf_parser import handle_file_upload
 
@@ -39,6 +41,7 @@ async def get_upload_status(
         "storage_path": upload.storage_path,
         "created_at": upload.created_at,
         "has_extracted_text": upload.extracted_text is not None,
+        "has_clean_text": upload.clean_text is not None,
     }
 
 
@@ -82,8 +85,81 @@ async def clean_upload_text(
             detail="No extracted text found for this upload. Parse the PDF first.",
         )
 
-    return clean_extracted_text(
+    response = clean_extracted_text(
         upload_id=upload.id,
         raw_text=upload.extracted_text,
         options=options,
+    )
+
+    upload.clean_text = response.clean_text
+    upload.status = "CLEANED"
+    db.commit()
+
+    return response
+
+
+@router.post("/{upload_id}/extract", response_model=UploadCoursesResponse)
+async def extract_upload_courses(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    if not upload.extracted_text:
+        upload.status = "PROCESSING"
+        db.commit()
+        extract_text_from_pdf(upload, db)
+
+    if not upload.clean_text:
+        clean_response = clean_extracted_text(
+            upload_id=upload.id,
+            raw_text=upload.extracted_text,
+            options=CleanTextRequest(),
+        )
+        upload.clean_text = clean_response.clean_text
+        upload.status = "CLEANED"
+        db.commit()
+
+    try:
+        extraction = extract_academic_events(upload.clean_text)
+    except ExtractionServiceError as exc:
+        upload.status = "NEEDS_REVIEW"
+        db.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    for existing_course in list(upload.courses):
+        db.delete(existing_course)
+    db.flush()
+
+    extracted_course = extraction.course
+    course = Course(
+        upload_id=upload.id,
+        course_code=extracted_course.course_code,
+        course_name=extracted_course.course_name,
+        semester=extracted_course.semester,
+    )
+
+    for extracted_event in extracted_course.events:
+        course.events.append(
+            CourseEvent(
+                title=extracted_event.title,
+                type=extracted_event.type.value,
+                date=extracted_event.date,
+                weight=extracted_event.weight,
+                confidence=extracted_event.confidence,
+                source_text=extracted_event.source_text,
+            )
+        )
+
+    db.add(course)
+    upload.status = "EXTRACTED"
+    db.commit()
+    db.refresh(course)
+
+    return UploadCoursesResponse(
+        upload_id=upload.id,
+        courses=[CourseRead.model_validate(course)],
     )
