@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from db.base import Base
@@ -10,6 +10,7 @@ class Upload(Base):
     __tablename__ = "uploads"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
 
     original_filename = Column(String, nullable=False)
     saved_filename = Column(String, nullable=False)
@@ -23,6 +24,7 @@ class Upload(Base):
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    user = relationship("User", back_populates="uploads")
     courses = relationship(
         "Course",
         back_populates="upload",

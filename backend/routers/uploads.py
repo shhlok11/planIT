@@ -6,7 +6,7 @@ from core.dependencies import get_current_user
 from core.ics_builder import build_calendar_ics
 from core.priority_scoring import score_upload_events
 from core.scheduler_engine import generate_study_blocks
-from db.models import Course, CourseEvent, StudyBlock, Upload, User, UserPreference
+from db.models import Course, CourseEvent, StudyBlock, Upload, UserPreference
 from db.session import get_db
 from schemas.clean_text import CleanTextRequest, CleanTextResponse
 from schemas.conflict import UploadConflictsResponse
@@ -20,6 +20,18 @@ from service.pdf_parser import handle_file_upload
 from service.chunk_text import build_extraction_text_from_chunks, chunk_outline
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
+
+
+def _current_user_id(current_user) -> int:
+    """Support the current auth dependency shape and future User objects."""
+    user_id = getattr(current_user, "id", None)
+    if user_id is None and isinstance(current_user, dict):
+        user_id = current_user.get("user_id")
+
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Could not identify current user")
+
+    return int(user_id)
 
 
 def _get_upload_or_404(db: Session, upload_id: int, user_id: int) -> Upload:
@@ -37,18 +49,18 @@ def _get_upload_or_404(db: Session, upload_id: int, user_id: int) -> Upload:
 async def upload_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    return await handle_file_upload(file, db, user_id=current_user.id)
+    return await handle_file_upload(file, db, user_id=_current_user_id(current_user))
 
 
 @router.get("/upload-status/{upload_id}")
 async def get_upload_status(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
+    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     return {
         "upload_id": upload.id,
         "original_filename": upload.original_filename,
@@ -66,9 +78,9 @@ async def get_upload_status(
 async def get_upload_courses(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
+    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     return UploadCoursesResponse(
         upload_id=upload.id,
         courses=[CourseRead.model_validate(course) for course in upload.courses],
@@ -79,10 +91,11 @@ async def get_upload_courses(
 async def get_upload_priority_scores(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
-    preference = _latest_preference(db, current_user.id)
+    user_id = _current_user_id(current_user)
+    upload = _get_upload_or_404(db, upload_id, user_id)
+    preference = _latest_preference(db, user_id)
     scores = score_upload_events(upload.courses, preference)
     return UploadPriorityScoresResponse(
         upload_id=upload.id,
@@ -95,9 +108,9 @@ async def get_upload_priority_scores(
 async def get_upload_conflicts(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
+    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     events = [
         event
         for course in upload.courses
@@ -113,10 +126,11 @@ async def get_upload_conflicts(
 async def get_upload_study_blocks(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
-    preference = _latest_preference(db, current_user.id)
+    user_id = _current_user_id(current_user)
+    upload = _get_upload_or_404(db, upload_id, user_id)
+    preference = _latest_preference(db, user_id)
     return UploadScheduleResponse(
         upload_id=upload.id,
         preference_id=preference.id if preference else None,
@@ -131,10 +145,11 @@ async def get_upload_study_blocks(
 async def generate_upload_schedule(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
-    preference = _latest_preference(db, current_user.id)
+    user_id = _current_user_id(current_user)
+    upload = _get_upload_or_404(db, upload_id, user_id)
+    preference = _latest_preference(db, user_id)
     priority_scores = score_upload_events(upload.courses, preference)
     events = [
         event
@@ -174,9 +189,9 @@ async def generate_upload_schedule(
 async def export_upload_ics(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
+    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     ics_content = build_calendar_ics(
         courses=upload.courses,
         study_blocks=upload.study_blocks,
@@ -194,9 +209,9 @@ async def export_upload_ics(
 async def parse_upload(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
+    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     upload.status = "PROCESSING"
     db.commit()
     text = extract_text_from_pdf(upload, db)
@@ -213,9 +228,9 @@ async def clean_upload_text(
     upload_id: int,
     options: CleanTextRequest = Body(default_factory=CleanTextRequest),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
+    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     if not upload.extracted_text:
         raise HTTPException(
             status_code=400,
@@ -236,9 +251,9 @@ async def clean_upload_text(
 async def extract_upload_courses(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
+    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
 
     if not upload.extracted_text:
         upload.status = "PROCESSING"
@@ -302,9 +317,9 @@ async def extract_upload_courses(
 async def chunk_upload_text(
     upload_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, current_user.id)
+    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     if not upload.extracted_text:
         raise HTTPException(
             status_code=400,
@@ -320,9 +335,7 @@ async def chunk_upload_text(
 
 
 def _latest_preference(db: Session, user_id: int) -> UserPreference | None:
-    return (
-        db.query(UserPreference)
-        .filter(UserPreference.user_id == user_id)
-        .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
-        .first()
-    )
+    query = db.query(UserPreference)
+    if hasattr(UserPreference, "user_id"):
+        query = query.filter(UserPreference.user_id == user_id)
+    return query.order_by(UserPreference.created_at.desc(), UserPreference.id.desc()).first()

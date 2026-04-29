@@ -21,6 +21,7 @@ httptools==0.7.1
 httpx==0.28.1
 icalendar==5.0.13
 idna==3.13
+itsdangerous==2.2.0
 Jinja2==3.1.6
 jiter==0.14.0
 joserfc==1.6.4
@@ -36,6 +37,7 @@ pyasn1==0.6.3
 pycparser==3.0
 pydantic==2.7.0
 pydantic_core==2.18.1
+pydantic-settings==2.2.1
 Pygments==2.20.0
 PyMuPDF==1.27.2.2
 pypdfium2==5.7.1

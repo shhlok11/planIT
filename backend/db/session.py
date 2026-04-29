@@ -36,6 +36,9 @@ def ensure_runtime_schema():
     if "clean_text" not in upload_columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE uploads ADD COLUMN clean_text TEXT"))
+    if "user_id" not in upload_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE uploads ADD COLUMN user_id INTEGER"))
 
     if "user_preferences" not in inspector.get_table_names():
         return
