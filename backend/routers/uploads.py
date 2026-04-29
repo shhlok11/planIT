@@ -9,6 +9,7 @@ from service.clean_text_optimize import clean_extracted_text
 from service.extract_academic_events import ExtractionServiceError, extract_academic_events
 from service.extract_from_pdf import extract_text_from_pdf
 from service.pdf_parser import handle_file_upload
+from service.chunk_text import build_extraction_text_from_chunks, chunk_outline
 
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -124,7 +125,9 @@ async def extract_upload_courses(
         db.commit()
 
     try:
-        extraction = extract_academic_events(upload.clean_text)
+        chunks = chunk_outline(upload.clean_text)
+        extraction_text = build_extraction_text_from_chunks(chunks)
+        extraction = extract_academic_events(extraction_text)
     except ExtractionServiceError as exc:
         upload.status = "NEEDS_REVIEW"
         db.commit()
@@ -163,3 +166,24 @@ async def extract_upload_courses(
         upload_id=upload.id,
         courses=[CourseRead.model_validate(course)],
     )
+
+@router.post("/chunk-upload/{upload_id}")
+async def chunk_upload_text(upload_id: int, db: Session = Depends(get_db)):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    if not upload.extracted_text:
+        raise HTTPException(
+            status_code=400,
+            detail="No extracted text found for this upload. Parse the PDF first.",
+        )
+
+    source_text = upload.clean_text or upload.extracted_text
+    chunks = chunk_outline(source_text)
+    return {
+        "upload_id": upload.id,
+        "chunks": chunks,
+        "extraction_text": build_extraction_text_from_chunks(chunks),
+    }
