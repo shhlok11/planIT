@@ -77,7 +77,7 @@ Upload PDFs → View unified deadline timeline → See conflict warnings → Dow
 - Backend must be Python (PDF + LLM libraries)
 - No database for MVP — all processing is stateless, in-memory per request
 - `.ics` is the only calendar output format
-- Processing must complete within 30 seconds (Anthropic API latency + PDF parsing)
+- Processing must complete within 30 seconds (OpenAI API latency + PDF parsing)
 
 ---
 
@@ -108,7 +108,7 @@ Upload PDFs → View unified deadline timeline → See conflict warnings → Dow
 │  │     pdfplumber → raw text per file               │   │
 │  │              ↓                                   │   │
 │  │  2. Extraction Agent                             │   │
-│  │     Anthropic API → structured JSON deadlines    │   │
+│  │     OpenAI API → structured JSON deadlines       │   │
 │  │              ↓                                   │   │
 │  │  3. Conflict Engine                              │   │
 │  │     48hr sliding window → ConflictGroups         │   │
@@ -123,7 +123,7 @@ Upload PDFs → View unified deadline timeline → See conflict warnings → Dow
 │              - ics_content (base64 string)              │
 └─────────────────────────────────────────────────────────┘
                            │
-                  Anthropic API (external)
+                  OpenAI API (external)
 ```
 
 ### Key architectural decision: one endpoint, one response
@@ -150,7 +150,7 @@ syllabus-architect/
 │   │
 │   ├── agents/
 │   │   ├── ingestion_agent.py       # PDF bytes → raw text string
-│   │   └── extraction_agent.py      # raw text → list[Deadline] via Anthropic
+│   │   └── extraction_agent.py      # raw text → list[Deadline] via OpenAI
 │   │
 │   ├── core/
 │   │   ├── conflict_engine.py       # list[Deadline] → list[ConflictGroup]
@@ -337,7 +337,7 @@ Accepted timezone values:
 | `400` | No files attached, or wrong file type | `{"detail": "Only PDF files are accepted"}` |
 | `413` | File exceeds 20MB | `{"detail": "File too large: max 20MB per file"}` |
 | `422` | PDF text extraction failed on all pages | `{"detail": "Could not extract text from filename.pdf"}` |
-| `429` | Anthropic rate limit hit after retries | `{"detail": "AI service temporarily unavailable, try again in 60s"}` |
+| `429` | OpenAI rate limit hit after retries | `{"detail": "AI service temporarily unavailable, try again in 60s"}` |
 | `500` | Unexpected error | `{"detail": "Internal server error"}` |
 
 #### GET /api/v1/health
@@ -480,7 +480,7 @@ def _try_pymupdf(pdf_bytes: bytes) -> str:
 #### agents/extraction_agent.py
 
 ```python
-import anthropic
+from openai import OpenAI, RateLimitError
 import json
 import time
 import uuid
@@ -488,7 +488,7 @@ from fastapi import HTTPException
 from models.deadline import Deadline, DeadlineType
 from utils.prompts import EXTRACTION_SYSTEM_PROMPT
 
-client = anthropic.Anthropic()
+client = OpenAI()
 
 def extract_deadlines(raw_text: str, course: str) -> list[Deadline]:
     raw_json = _call_llm_with_retry(raw_text)
@@ -497,13 +497,14 @@ def extract_deadlines(raw_text: str, course: str) -> list[Deadline]:
 def _call_llm_with_retry(text: str, max_retries: int = 3) -> list[dict]:
     for attempt in range(max_retries):
         try:
-            response = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=2000,
-                system=EXTRACTION_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": text}],
+            response = client.responses.create(
+                model="gpt-5",
+                input=[
+                    {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
+                    {"role": "user", "content": text},
+                ],
             )
-            raw = response.content[0].text.strip()
+            raw = response.output_text.strip()
             # Strip markdown fences defensively
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
@@ -514,7 +515,7 @@ def _call_llm_with_retry(text: str, max_retries: int = 3) -> list[dict]:
             if attempt == max_retries - 1:
                 return []  # fail gracefully, not hard crash
             time.sleep(2 ** attempt)
-        except anthropic.RateLimitError:
+        except RateLimitError:
             if attempt == max_retries - 1:
                 raise HTTPException(429, "AI service temporarily unavailable, try again in 60s")
             time.sleep(60)
@@ -713,9 +714,9 @@ Follow this hierarchy — never let the pipeline crash silently and never return
 fastapi==0.111.0
 uvicorn==0.30.0
 python-multipart==0.0.9
-anthropic==0.28.0
+openai==2.32.0
 pdfplumber==0.11.0
-PyMuPDF==1.24.0
+PyMuPDF==1.27.2.2
 pydantic==2.7.0
 python-dotenv==1.0.0
 icalendar==5.0.13
@@ -944,7 +945,7 @@ The user opens the `.ics` file and their OS asks which calendar app to use. Goog
 
 ```bash
 # Required
-ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
 
 # CORS — your Vercel URL
 FRONTEND_URL=https://your-app.vercel.app
@@ -970,7 +971,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 - Python 3.11+
 - Node.js 18+
-- An Anthropic API key
+- An OpenAI API key
 
 ### Backend
 
@@ -979,7 +980,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env            # fill in ANTHROPIC_API_KEY
+cp .env.example .env            # fill in OPENAI_API_KEY
 uvicorn main:app --reload --port 8000
 ```
 
@@ -1004,7 +1005,7 @@ npm run dev                        # runs on localhost:3000
 2. New project at [railway.app](https://railway.app) → connect repo → select `backend/` as root
 3. Railway detects Python and runs `Procfile` automatically
 4. Add environment variables in Railway dashboard:
-   - `ANTHROPIC_API_KEY`
+   - `OPENAI_API_KEY`
    - `FRONTEND_URL` (your Vercel URL — add this after deploying frontend)
 5. Copy the Railway public URL (e.g. `https://syllabus-api.up.railway.app`)
 
@@ -1035,7 +1036,7 @@ Work in this order. Do not skip ahead.
 - [ ] Set up FastAPI with health route, confirm it runs
 - [ ] Set up Next.js, confirm it runs
 - [ ] Install all Python dependencies
-- [ ] Test Anthropic API key with a raw `curl`
+- [ ] Test OpenAI API key with a raw `curl`
 
 ### Hour 1–3: Backend pipeline
 

@@ -1,1 +1,19 @@
-# Backend dependencies go here.
+# API framework
+fastapi==0.111.0
+uvicorn==0.30.0
+python-multipart==0.0.9
+
+# LLM integration
+openai==2.32.0
+
+# PDF parsing
+pdfplumber==0.11.0
+PyMuPDF==1.27.2.2
+
+# Data validation and config
+pydantic==2.7.0
+python-dotenv==1.0.0
+
+# Calendar generation and timezone handling
+icalendar==5.0.13
+pytz==2024.1
