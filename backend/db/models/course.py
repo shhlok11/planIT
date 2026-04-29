@@ -26,3 +26,8 @@ class Course(Base):
         back_populates="course",
         cascade="all, delete-orphan",
     )
+    study_blocks = relationship(
+        "StudyBlock",
+        back_populates="course",
+        cascade="all, delete-orphan",
+    )

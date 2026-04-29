@@ -23,3 +23,8 @@ class CourseEvent(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     course = relationship("Course", back_populates="events")
+    study_blocks = relationship(
+        "StudyBlock",
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )

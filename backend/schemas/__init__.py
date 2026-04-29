@@ -28,3 +28,8 @@ from schemas.priority import (
     PriorityScoreRead,
     UploadPriorityScoresResponse,
 )
+from schemas.study_block import (
+    StudyBlockCreate,
+    StudyBlockRead,
+    UploadScheduleResponse,
+)

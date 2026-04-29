@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
+from core.conflict_engine import detect_conflicts
+from core.ics_builder import build_calendar_ics
 from core.priority_scoring import score_upload_events
-from db.models import Course, CourseEvent, Upload, UserPreference
+from core.scheduler_engine import generate_study_blocks
+from db.models import Course, CourseEvent, StudyBlock, Upload, UserPreference
 from db.session import get_db
 from schemas.clean_text import CleanTextRequest, CleanTextResponse
+from schemas.conflict import UploadConflictsResponse
 from schemas.extraction import CourseRead, UploadCoursesResponse
 from schemas.priority import UploadPriorityScoresResponse
+from schemas.study_block import StudyBlockRead, UploadScheduleResponse
 from service.clean_text_optimize import clean_extracted_text
 from service.extract_academic_events import ExtractionServiceError, extract_academic_events
 from service.extract_from_pdf import extract_text_from_pdf
@@ -86,6 +91,118 @@ async def get_upload_priority_scores(
         upload_id=upload.id,
         preference_id=preference.id if preference else None,
         scores=scores,
+    )
+
+
+@router.get("/{upload_id}/conflicts", response_model=UploadConflictsResponse)
+async def get_upload_conflicts(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    events = [
+        event
+        for course in upload.courses
+        for event in course.events
+    ]
+
+    return UploadConflictsResponse(
+        upload_id=upload.id,
+        conflicts=detect_conflicts(events),
+    )
+
+
+@router.get("/{upload_id}/study-blocks", response_model=UploadScheduleResponse)
+async def get_upload_study_blocks(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    preference = _latest_preference(db)
+    return UploadScheduleResponse(
+        upload_id=upload.id,
+        preference_id=preference.id if preference else None,
+        study_blocks=[
+            StudyBlockRead.model_validate(block)
+            for block in sorted(upload.study_blocks, key=lambda item: item.start_time)
+        ],
+    )
+
+
+@router.post("/{upload_id}/schedule", response_model=UploadScheduleResponse)
+async def generate_upload_schedule(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    preference = _latest_preference(db)
+    priority_scores = score_upload_events(upload.courses, preference)
+    events = [
+        event
+        for course in upload.courses
+        for event in course.events
+    ]
+    generated_blocks = generate_study_blocks(
+        upload_id=upload.id,
+        courses=upload.courses,
+        preference=preference,
+        priority_scores=priority_scores,
+        conflicts=detect_conflicts(events),
+    )
+
+    for existing_block in list(upload.study_blocks):
+        db.delete(existing_block)
+    db.flush()
+
+    saved_blocks = []
+    for block in generated_blocks:
+        study_block = StudyBlock(**block.model_dump())
+        db.add(study_block)
+        saved_blocks.append(study_block)
+
+    db.commit()
+    for block in saved_blocks:
+        db.refresh(block)
+
+    return UploadScheduleResponse(
+        upload_id=upload.id,
+        preference_id=preference.id if preference else None,
+        study_blocks=[StudyBlockRead.model_validate(block) for block in saved_blocks],
+    )
+
+
+@router.get("/{upload_id}/export.ics")
+async def export_upload_ics(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    ics_content = build_calendar_ics(
+        courses=upload.courses,
+        study_blocks=upload.study_blocks,
+    )
+    return Response(
+        content=ics_content,
+        media_type="text/calendar",
+        headers={
+            "Content-Disposition": f'attachment; filename="planit-upload-{upload.id}.ics"'
+        },
     )
 
 
@@ -232,24 +349,10 @@ async def chunk_upload_text(upload_id: int, db: Session = Depends(get_db)):
         "extraction_text": build_extraction_text_from_chunks(chunks),
     }
 
-@router.get("/{upload_id}/conflicts", response_model=UploadConflictsResponse)
-async def get_upload_conflicts(
-    upload_id: int,
-    db: Session = Depends(get_db),
-):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
 
-    events = [
-        event
-        for course in upload.courses
-        for event in course.events
-    ]
-
-    conflicts = detect_conflicts(events)
-
-    return UploadConflictsResponse(
-        upload_id=upload.id,
-        conflicts=conflicts,
+def _latest_preference(db: Session) -> UserPreference | None:
+    return (
+        db.query(UserPreference)
+        .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
+        .first()
     )
