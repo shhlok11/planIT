@@ -20,8 +20,7 @@ venv/
 # Local generated app data
 uploads/
 *.db
-*.sqlite3
-
+*.sqlite3y
 # Backend local secrets
 backend/.env
 

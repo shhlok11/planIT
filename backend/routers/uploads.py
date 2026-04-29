@@ -7,7 +7,7 @@ from service.extract_from_pdf import extract_text_from_pdf
 from service.pdf_parser import handle_file_upload
 
 
-router = APIRouter(prefix="/api/v1/uploads", tags=["uploads"])
+router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 
 @router.post("/upload-file")
