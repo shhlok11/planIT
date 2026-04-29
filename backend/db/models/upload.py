@@ -28,3 +28,8 @@ class Upload(Base):
         back_populates="upload",
         cascade="all, delete-orphan",
     )
+    study_blocks = relationship(
+        "StudyBlock",
+        back_populates="upload",
+        cascade="all, delete-orphan",
+    )
