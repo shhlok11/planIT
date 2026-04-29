@@ -67,7 +67,7 @@ def _detect_same_week_conflicts(events: list[CourseEvent]) -> list[dict[str, Any
         conflicts.append(
             _build_conflict(
                 rule="same_week",
-                severity="high",
+                severity="medium" if len(week_events) < 3 else "high",
                 events=week_events,
                 message=f"{len(week_events)} deadlines in the same week",
             )

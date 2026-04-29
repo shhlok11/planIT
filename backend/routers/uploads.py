@@ -12,7 +12,8 @@ from service.extract_academic_events import ExtractionServiceError, extract_acad
 from service.extract_from_pdf import extract_text_from_pdf
 from service.pdf_parser import handle_file_upload
 from service.chunk_text import build_extraction_text_from_chunks, chunk_outline
-
+from core.conflict_engine import detect_conflicts
+from schemas.conflict import UploadConflictsResponse
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -230,3 +231,25 @@ async def chunk_upload_text(upload_id: int, db: Session = Depends(get_db)):
         "chunks": chunks,
         "extraction_text": build_extraction_text_from_chunks(chunks),
     }
+
+@router.get("/{upload_id}/conflicts", response_model=UploadConflictsResponse)
+async def get_upload_conflicts(
+    upload_id: int,
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    events = [
+        event
+        for course in upload.courses
+        for event in course.events
+    ]
+
+    conflicts = detect_conflicts(events)
+
+    return UploadConflictsResponse(
+        upload_id=upload.id,
+        conflicts=conflicts,
+    )
