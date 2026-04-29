@@ -13,6 +13,7 @@ PyMuPDF==1.27.2.2
 # Data validation and config
 pydantic==2.7.0
 python-dotenv==1.0.0
+SQLAlchemy==2.0.41
 
 # Calendar generation and timezone handling
 icalendar==5.0.13
