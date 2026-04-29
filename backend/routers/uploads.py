@@ -1,27 +1,36 @@
-from fastapi import APIRouter, Body, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Body, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
-from core.conflict_engine import detect_conflicts
-from core.ics_builder import build_calendar_ics
-from core.priority_scoring import score_upload_events
-from core.scheduler_engine import generate_study_blocks
-from db.models import Course, CourseEvent, StudyBlock, Upload, UserPreference
+from dependencies.resources import get_upload_or_404
+from db.models import Upload
 from db.session import get_db
 from schemas.clean_text import CleanTextRequest, CleanTextResponse
 from schemas.conflict import UploadConflictsResponse
-from schemas.extraction import CourseRead, UploadCoursesResponse
+from schemas.extraction import UploadCoursesResponse
 from schemas.priority import UploadPriorityScoresResponse
-from schemas.study_block import StudyBlockRead, UploadScheduleResponse
-from service.clean_text_optimize import clean_extracted_text
-from service.extract_academic_events import ExtractionServiceError, extract_academic_events
-from service.extract_from_pdf import extract_text_from_pdf
+from schemas.study_block import UploadScheduleResponse
+from service.upload_analysis import (
+    build_and_save_schedule,
+    build_conflicts_response,
+    build_ics_response,
+    build_priority_scores_response,
+    build_study_blocks_response,
+    get_latest_preference,
+)
 from service.pdf_parser import handle_file_upload
-from service.chunk_text import build_extraction_text_from_chunks, chunk_outline
-from core.conflict_engine import detect_conflicts
-from schemas.conflict import UploadConflictsResponse
+from service.upload_pipeline import (
+    build_upload_courses_response,
+    build_upload_status,
+    ensure_cleaned,
+    extract_and_save_courses,
+    get_chunk_payload,
+    parse_upload_text,
+)
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
+
+# Stage 1: Upload and status
 
 @router.post("/upload-file")
 async def upload_file(
@@ -33,326 +42,98 @@ async def upload_file(
 
 @router.get("/upload-status/{upload_id}")
 async def get_upload_status(
-    upload_id: int,
+    upload: Upload = Depends(get_upload_or_404),
+):
+    return build_upload_status(upload)
+
+
+@router.post("/parse-upload/{upload_id}")
+async def parse_upload(
+    upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
 ):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+    return parse_upload_text(upload, db)
 
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
 
-    return {
-        "upload_id": upload.id,
-        "original_filename": upload.original_filename,
-        "saved_filename": upload.saved_filename,
-        "status": upload.status,
-        "file_size_bytes": upload.file_size_bytes,
-        "storage_path": upload.storage_path,
-        "created_at": upload.created_at,
-        "has_extracted_text": upload.extracted_text is not None,
-        "has_clean_text": upload.clean_text is not None,
-    }
+# Stage 2: Text preparation
+
+@router.post("/clean-upload/{upload_id}", response_model=CleanTextResponse)
+async def clean_upload_text(
+    upload: Upload = Depends(get_upload_or_404),
+    options: CleanTextRequest = Body(default_factory=CleanTextRequest),
+    db: Session = Depends(get_db),
+):
+    return ensure_cleaned(upload, db, options=options)
+
+
+@router.post("/chunk-upload/{upload_id}")
+async def chunk_upload_text(
+    upload: Upload = Depends(get_upload_or_404),
+    db: Session = Depends(get_db),
+):
+    return get_chunk_payload(upload, db)
+
+
+# Stage 3: Structured extraction and review
+
+@router.post("/{upload_id}/extract", response_model=UploadCoursesResponse)
+async def extract_upload_courses(
+    upload: Upload = Depends(get_upload_or_404),
+    db: Session = Depends(get_db),
+):
+    return extract_and_save_courses(upload, db)
 
 
 @router.get("/{upload_id}/courses", response_model=UploadCoursesResponse)
 async def get_upload_courses(
-    upload_id: int,
-    db: Session = Depends(get_db),
+    upload: Upload = Depends(get_upload_or_404),
 ):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+    return build_upload_courses_response(upload)
 
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
 
-    return UploadCoursesResponse(
-        upload_id=upload.id,
-        courses=[CourseRead.model_validate(course) for course in upload.courses],
-    )
-
+# Stage 4: Analysis
 
 @router.get("/{upload_id}/priority-scores", response_model=UploadPriorityScoresResponse)
 async def get_upload_priority_scores(
-    upload_id: int,
+    upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
 ):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    preference = (
-        db.query(UserPreference)
-        .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
-        .first()
-    )
-    scores = score_upload_events(upload.courses, preference)
-
-    return UploadPriorityScoresResponse(
-        upload_id=upload.id,
-        preference_id=preference.id if preference else None,
-        scores=scores,
-    )
+    return build_priority_scores_response(upload, get_latest_preference(db))
 
 
 @router.get("/{upload_id}/conflicts", response_model=UploadConflictsResponse)
 async def get_upload_conflicts(
-    upload_id: int,
+    upload: Upload = Depends(get_upload_or_404),
+):
+    return build_conflicts_response(upload)
+
+
+# Stage 5: Schedule generation
+
+@router.post("/{upload_id}/schedule", response_model=UploadScheduleResponse)
+async def generate_upload_schedule(
+    upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
 ):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    events = [
-        event
-        for course in upload.courses
-        for event in course.events
-    ]
-
-    return UploadConflictsResponse(
-        upload_id=upload.id,
-        conflicts=detect_conflicts(events),
+    return build_and_save_schedule(
+        upload,
+        db,
+        preference=get_latest_preference(db),
     )
 
 
 @router.get("/{upload_id}/study-blocks", response_model=UploadScheduleResponse)
 async def get_upload_study_blocks(
-    upload_id: int,
+    upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
 ):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    preference = _latest_preference(db)
-    return UploadScheduleResponse(
-        upload_id=upload.id,
-        preference_id=preference.id if preference else None,
-        study_blocks=[
-            StudyBlockRead.model_validate(block)
-            for block in sorted(upload.study_blocks, key=lambda item: item.start_time)
-        ],
-    )
+    return build_study_blocks_response(upload, get_latest_preference(db))
 
 
-@router.post("/{upload_id}/schedule", response_model=UploadScheduleResponse)
-async def generate_upload_schedule(
-    upload_id: int,
-    db: Session = Depends(get_db),
-):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    preference = _latest_preference(db)
-    priority_scores = score_upload_events(upload.courses, preference)
-    events = [
-        event
-        for course in upload.courses
-        for event in course.events
-    ]
-    generated_blocks = generate_study_blocks(
-        upload_id=upload.id,
-        courses=upload.courses,
-        preference=preference,
-        priority_scores=priority_scores,
-        conflicts=detect_conflicts(events),
-    )
-
-    for existing_block in list(upload.study_blocks):
-        db.delete(existing_block)
-    db.flush()
-
-    saved_blocks = []
-    for block in generated_blocks:
-        study_block = StudyBlock(**block.model_dump())
-        db.add(study_block)
-        saved_blocks.append(study_block)
-
-    db.commit()
-    for block in saved_blocks:
-        db.refresh(block)
-
-    return UploadScheduleResponse(
-        upload_id=upload.id,
-        preference_id=preference.id if preference else None,
-        study_blocks=[StudyBlockRead.model_validate(block) for block in saved_blocks],
-    )
-
+# Stage 6: Export
 
 @router.get("/{upload_id}/export.ics")
 async def export_upload_ics(
-    upload_id: int,
-    db: Session = Depends(get_db),
+    upload: Upload = Depends(get_upload_or_404),
 ):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    ics_content = build_calendar_ics(
-        courses=upload.courses,
-        study_blocks=upload.study_blocks,
-    )
-    return Response(
-        content=ics_content,
-        media_type="text/calendar",
-        headers={
-            "Content-Disposition": f'attachment; filename="planit-upload-{upload.id}.ics"'
-        },
-    )
-
-
-@router.post("/parse-upload/{upload_id}")
-async def parse_upload(
-    upload_id: int,
-    db: Session = Depends(get_db),
-):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    upload.status = "PROCESSING"
-    db.commit()
-
-    text = extract_text_from_pdf(upload, db)
-
-    return {
-        "upload_id": upload.id,
-        "status": upload.status,
-        "text_preview": text[:1000],
-        "text_length": len(text),
-    }
-
-
-@router.post("/clean-upload/{upload_id}", response_model=CleanTextResponse)
-async def clean_upload_text(
-    upload_id: int,
-    options: CleanTextRequest = Body(default_factory=CleanTextRequest),
-    db: Session = Depends(get_db),
-):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    if not upload.extracted_text:
-        raise HTTPException(
-            status_code=400,
-            detail="No extracted text found for this upload. Parse the PDF first.",
-        )
-
-    response = clean_extracted_text(
-        upload_id=upload.id,
-        raw_text=upload.extracted_text,
-        options=options,
-    )
-
-    upload.clean_text = response.clean_text
-    upload.status = "CLEANED"
-    db.commit()
-
-    return response
-
-
-@router.post("/{upload_id}/extract", response_model=UploadCoursesResponse)
-async def extract_upload_courses(
-    upload_id: int,
-    db: Session = Depends(get_db),
-):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    if not upload.extracted_text:
-        upload.status = "PROCESSING"
-        db.commit()
-        extract_text_from_pdf(upload, db)
-
-    if not upload.clean_text:
-        clean_response = clean_extracted_text(
-            upload_id=upload.id,
-            raw_text=upload.extracted_text,
-            options=CleanTextRequest(),
-        )
-        upload.clean_text = clean_response.clean_text
-        upload.status = "CLEANED"
-        db.commit()
-
-    try:
-        chunks = chunk_outline(upload.clean_text)
-        extraction_text = build_extraction_text_from_chunks(chunks)
-        extraction = extract_academic_events(extraction_text)
-    except ExtractionServiceError as exc:
-        upload.status = "NEEDS_REVIEW"
-        db.commit()
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-    for existing_course in list(upload.courses):
-        db.delete(existing_course)
-    db.flush()
-
-    extracted_course = extraction.course
-    course = Course(
-        upload_id=upload.id,
-        course_code=extracted_course.course_code,
-        course_name=extracted_course.course_name,
-        semester=extracted_course.semester,
-    )
-
-    for extracted_event in extracted_course.events:
-        course.events.append(
-            CourseEvent(
-                title=extracted_event.title,
-                type=extracted_event.type.value,
-                date=extracted_event.date,
-                weight=extracted_event.weight,
-                confidence=extracted_event.confidence,
-                source_text=extracted_event.source_text,
-            )
-        )
-
-    db.add(course)
-    upload.status = "EXTRACTED"
-    db.commit()
-    db.refresh(course)
-
-    return UploadCoursesResponse(
-        upload_id=upload.id,
-        courses=[CourseRead.model_validate(course)],
-    )
-
-
-@router.post("/chunk-upload/{upload_id}")
-async def chunk_upload_text(upload_id: int, db: Session = Depends(get_db)):
-    upload = db.query(Upload).filter(Upload.id == upload_id).first()
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    if not upload.extracted_text:
-        raise HTTPException(
-            status_code=400,
-            detail="No extracted text found for this upload. Parse the PDF first.",
-        )
-
-    source_text = upload.clean_text or upload.extracted_text
-    chunks = chunk_outline(source_text)
-    return {
-        "upload_id": upload.id,
-        "chunks": chunks,
-        "extraction_text": build_extraction_text_from_chunks(chunks),
-    }
-
-
-def _latest_preference(db: Session) -> UserPreference | None:
-    return (
-        db.query(UserPreference)
-        .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
-        .first()
-    )
+    return build_ics_response(upload)

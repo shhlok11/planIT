@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from db.models import UserPreference
 from db.session import get_db
 from schemas.preferences import UserPreferenceCreate, UserPreferenceRead
+from service.upload_analysis import get_latest_preference
 
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
@@ -14,11 +15,7 @@ async def upsert_preferences(
     preferences: UserPreferenceCreate,
     db: Session = Depends(get_db),
 ):
-    preference = (
-        db.query(UserPreference)
-        .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
-        .first()
-    )
+    preference = get_latest_preference(db)
 
     if preference is None:
         preference = UserPreference()
@@ -38,11 +35,7 @@ async def upsert_preferences(
 
 @router.get("/latest", response_model=UserPreferenceRead)
 async def get_latest_preferences(db: Session = Depends(get_db)):
-    preference = (
-        db.query(UserPreference)
-        .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
-        .first()
-    )
+    preference = get_latest_preference(db)
 
     if not preference:
         raise HTTPException(status_code=404, detail="Preferences not found")
