@@ -1,0 +1,1 @@
+"""Syllabus API routes."""

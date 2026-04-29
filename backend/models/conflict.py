@@ -1,0 +1,1 @@
+"""Conflict data models."""
