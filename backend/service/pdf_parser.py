@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UPLOADS_DIR = PROJECT_ROOT / "uploads"
 
 
-async def handle_file_upload(file: UploadFile, db: Session):
+async def handle_file_upload(file: UploadFile, db: Session, user_id: int):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
@@ -58,6 +58,7 @@ async def handle_file_upload(file: UploadFile, db: Session):
                 buffer.write(chunk)
 
         upload_record = Upload(
+            user_id=user_id,
             original_filename=file.filename,
             saved_filename=saved_filename,
             content_type=file.content_type,

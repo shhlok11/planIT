@@ -5,6 +5,7 @@ from core.weight_validation import would_exceed_course_weight_limit
 from dependencies.resources import get_course_or_404
 from db.models import Course, CourseEvent
 from db.session import get_db
+from dependencies.resources import get_course_or_404
 from schemas.extraction import CourseEventCreate, CourseEventRead, CourseRead
 from schemas.preferences import CoursePreferenceUpdate
 

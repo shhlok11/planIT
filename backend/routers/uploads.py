@@ -1,23 +1,27 @@
 from fastapi import APIRouter, Body, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
-from dependencies.resources import get_upload_or_404
+from core.rate_limit import rate_limit
 from db.models import Upload
 from db.session import get_db
+from dependencies.resources import (
+    get_current_user_id,
+    get_latest_user_preference,
+    get_upload_or_404,
+)
 from schemas.clean_text import CleanTextRequest, CleanTextResponse
 from schemas.conflict import UploadConflictsResponse
 from schemas.extraction import UploadCoursesResponse
 from schemas.priority import UploadPriorityScoresResponse
 from schemas.study_block import UploadScheduleResponse
+from service.pdf_parser import handle_file_upload
 from service.upload_analysis import (
     build_and_save_schedule,
     build_conflicts_response,
     build_ics_response,
     build_priority_scores_response,
     build_study_blocks_response,
-    get_latest_preference,
 )
-from service.pdf_parser import handle_file_upload
 from service.upload_pipeline import (
     build_upload_courses_response,
     build_upload_status,
@@ -26,6 +30,7 @@ from service.upload_pipeline import (
     get_chunk_payload,
     parse_upload_text,
 )
+
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -36,8 +41,15 @@ router = APIRouter(prefix="/uploads", tags=["uploads"])
 async def upload_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
+    _: None = rate_limit(
+        "uploads:upload-file",
+        limit=5,
+        window_seconds=60,
+        prefer_authenticated_user=True,
+    ),
 ):
-    return await handle_file_upload(file, db)
+    return await handle_file_upload(file, db, user_id=current_user_id)
 
 
 @router.get("/upload-status/{upload_id}")
@@ -80,6 +92,12 @@ async def chunk_upload_text(
 async def extract_upload_courses(
     upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
+    _: None = rate_limit(
+        "uploads:extract",
+        limit=5,
+        window_seconds=60,
+        prefer_authenticated_user=True,
+    ),
 ):
     return extract_and_save_courses(upload, db)
 
@@ -96,9 +114,9 @@ async def get_upload_courses(
 @router.get("/{upload_id}/priority-scores", response_model=UploadPriorityScoresResponse)
 async def get_upload_priority_scores(
     upload: Upload = Depends(get_upload_or_404),
-    db: Session = Depends(get_db),
+    preference=Depends(get_latest_user_preference),
 ):
-    return build_priority_scores_response(upload, get_latest_preference(db))
+    return build_priority_scores_response(upload, preference)
 
 
 @router.get("/{upload_id}/conflicts", response_model=UploadConflictsResponse)
@@ -114,20 +132,27 @@ async def get_upload_conflicts(
 async def generate_upload_schedule(
     upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
+    preference=Depends(get_latest_user_preference),
+    _: None = rate_limit(
+        "uploads:schedule",
+        limit=5,
+        window_seconds=60,
+        prefer_authenticated_user=True,
+    ),
 ):
     return build_and_save_schedule(
         upload,
         db,
-        preference=get_latest_preference(db),
+        preference=preference,
     )
 
 
 @router.get("/{upload_id}/study-blocks", response_model=UploadScheduleResponse)
 async def get_upload_study_blocks(
     upload: Upload = Depends(get_upload_or_404),
-    db: Session = Depends(get_db),
+    preference=Depends(get_latest_user_preference),
 ):
-    return build_study_blocks_response(upload, get_latest_preference(db))
+    return build_study_blocks_response(upload, preference)
 
 
 # Stage 6: Export

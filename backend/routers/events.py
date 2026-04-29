@@ -3,9 +3,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core.weight_validation import would_exceed_course_weight_limit
-from dependencies.resources import get_event_or_404
 from db.models import CourseEvent
 from db.session import get_db
+from dependencies.resources import get_event_or_404
 from schemas.extraction import CourseEventRead, CourseEventUpdate
 
 
@@ -57,8 +57,7 @@ async def delete_event(
     event: CourseEvent = Depends(get_event_or_404),
     db: Session = Depends(get_db),
 ):
-    event_id = event.id
     db.delete(event)
     db.commit()
 
-    return EventDeleteResponse(deleted=True, event_id=event_id)
+    return EventDeleteResponse(deleted=True, event_id=event.id)
