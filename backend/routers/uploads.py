@@ -17,7 +17,8 @@ from service.extract_academic_events import ExtractionServiceError, extract_acad
 from service.extract_from_pdf import extract_text_from_pdf
 from service.pdf_parser import handle_file_upload
 from service.chunk_text import build_extraction_text_from_chunks, chunk_outline
-
+from core.conflict_engine import detect_conflicts
+from schemas.conflict import UploadConflictsResponse
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
