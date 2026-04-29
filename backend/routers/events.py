@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from core.weight_validation import would_exceed_course_weight_limit
 from db.models import CourseEvent
 from db.session import get_db
 from schemas.extraction import CourseEventRead, CourseEventUpdate
@@ -29,6 +30,21 @@ async def update_event(
     update_data = update.model_dump(exclude_unset=True)
     if "type" in update_data and update_data["type"] is not None:
         update_data["type"] = update_data["type"].value
+    if "weight" in update_data:
+        exceeds_limit, projected_total = would_exceed_course_weight_limit(
+            db,
+            course_id=event.course_id,
+            new_weight=update_data["weight"],
+            exclude_event_id=event.id,
+        )
+        if exceeds_limit:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Course event weights cannot exceed 100%. "
+                    f"Projected total is {projected_total:g}%."
+                ),
+            )
 
     for field, value in update_data.items():
         setattr(event, field, value)

@@ -1,4 +1,10 @@
 from schemas.clean_text import CleanTextRequest, CleanTextResponse
+from schemas.conflict import (
+    ConflictRead,
+    ConflictRule,
+    ConflictSeverity,
+    UploadConflictsResponse,
+)
 from schemas.extraction import (
     CourseEventCreate,
     CourseEventRead,

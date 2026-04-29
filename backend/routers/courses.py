@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from core.weight_validation import would_exceed_course_weight_limit
 from db.models import Course, CourseEvent
 from db.session import get_db
 from schemas.extraction import CourseEventCreate, CourseEventRead, CourseRead
@@ -58,6 +59,20 @@ async def create_course_event(
 
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+
+    exceeds_limit, projected_total = would_exceed_course_weight_limit(
+        db,
+        course_id=course.id,
+        new_weight=event.weight,
+    )
+    if exceeds_limit:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Course event weights cannot exceed 100%. "
+                f"Projected total is {projected_total:g}%."
+            ),
+        )
 
     course_event = CourseEvent(
         course_id=course.id,
