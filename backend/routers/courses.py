@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from core.weight_validation import would_exceed_course_weight_limit
 from db.models import Course, CourseEvent
 from db.session import get_db
+from dependencies.resources import get_course_or_404
 from schemas.extraction import CourseEventCreate, CourseEventRead, CourseRead
 from schemas.preferences import CoursePreferenceUpdate
 
@@ -13,15 +14,10 @@ router = APIRouter(prefix="/courses", tags=["courses"])
 
 @router.patch("/{course_id}/preferences", response_model=CourseRead)
 async def update_course_preferences(
-    course_id: int,
     update: CoursePreferenceUpdate,
+    course: Course = Depends(get_course_or_404),
     db: Session = Depends(get_db),
 ):
-    course = db.query(Course).filter(Course.id == course_id).first()
-
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
     update_data = update.model_dump(exclude_unset=True)
     requested_rank = update_data.get("priority_rank")
     if requested_rank is not None:
@@ -51,15 +47,10 @@ async def update_course_preferences(
 
 @router.post("/{course_id}/events", response_model=CourseEventRead, status_code=201)
 async def create_course_event(
-    course_id: int,
     event: CourseEventCreate,
+    course: Course = Depends(get_course_or_404),
     db: Session = Depends(get_db),
 ):
-    course = db.query(Course).filter(Course.id == course_id).first()
-
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
     exceeds_limit, projected_total = would_exceed_course_weight_limit(
         db,
         course_id=course.id,

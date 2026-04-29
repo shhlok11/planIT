@@ -1,9 +1,8 @@
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from core.config import settings
-from core.dependencies import get_current_user
 from db.base import Base
 from db.session import engine, ensure_runtime_schema
 from routers.auth import router as auth_router
@@ -30,11 +29,11 @@ app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET_KEY)
 # Public
 app.include_router(auth_router)
 
-# Protected — get_current_user applied to every route in these routers
-app.include_router(uploads_router, prefix="/api/v1", dependencies=[Depends(get_current_user)])
-app.include_router(events_router, prefix="/api/v1", dependencies=[Depends(get_current_user)])
-app.include_router(courses_router, prefix="/api/v1", dependencies=[Depends(get_current_user)])
-app.include_router(preferences_router, prefix="/api/v1", dependencies=[Depends(get_current_user)])
+# Protected at the route level with get_current_user.
+app.include_router(uploads_router, prefix="/api/v1")
+app.include_router(events_router, prefix="/api/v1")
+app.include_router(courses_router, prefix="/api/v1")
+app.include_router(preferences_router, prefix="/api/v1")
 
 @app.get("/api/v1/health")
 def health_check():

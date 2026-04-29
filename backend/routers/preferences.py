@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from db.models import UserPreference
 from db.session import get_db
+from dependencies.resources import get_current_user_id, get_latest_user_preference
 from schemas.preferences import UserPreferenceCreate, UserPreferenceRead
 
 
@@ -13,15 +14,17 @@ router = APIRouter(prefix="/preferences", tags=["preferences"])
 async def upsert_preferences(
     preferences: UserPreferenceCreate,
     db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
 ):
     preference = (
         db.query(UserPreference)
+        .filter(UserPreference.user_id == current_user_id)
         .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
         .first()
     )
 
     if preference is None:
-        preference = UserPreference()
+        preference = UserPreference(user_id=current_user_id)
         db.add(preference)
 
     preference.study_hours_per_day = preferences.study_hours_per_day
@@ -37,13 +40,9 @@ async def upsert_preferences(
 
 
 @router.get("/latest", response_model=UserPreferenceRead)
-async def get_latest_preferences(db: Session = Depends(get_db)):
-    preference = (
-        db.query(UserPreference)
-        .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
-        .first()
-    )
-
+async def get_latest_preferences(
+    preference: UserPreference | None = Depends(get_latest_user_preference),
+):
     if not preference:
         raise HTTPException(status_code=404, detail="Preferences not found")
 

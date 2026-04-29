@@ -9,10 +9,12 @@ class User(Base):
 
     id          = Column(Integer, primary_key=True, index=True)
     email       = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=True)
     name        = Column(String, nullable=True)
     avatar_url  = Column(String, nullable=True)
     is_active   = Column(Boolean, default=True)
-    created_at  = Column(DateTime, default=datetime)
+    created_at  = Column(DateTime, default=datetime.utcnow)
 
     oauth_accounts = relationship("OAuthAccount", back_populates="user")
     uploads        = relationship("Upload", back_populates="user")
+    preferences    = relationship("UserPreference", back_populates="user")

@@ -41,11 +41,23 @@ def ensure_runtime_schema():
             connection.execute(text("ALTER TABLE uploads ADD COLUMN user_id INTEGER"))
 
     if "user_preferences" not in inspector.get_table_names():
-        return
+        user_pref_exists = False
+    else:
+        user_pref_exists = True
 
-    preference_columns = {
-        column["name"] for column in inspector.get_columns("user_preferences")
-    }
-    if "updated_at" not in preference_columns:
-        with engine.begin() as connection:
-            connection.execute(text("ALTER TABLE user_preferences ADD COLUMN updated_at DATETIME"))
+    if "users" in inspector.get_table_names():
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "hashed_password" not in user_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE users ADD COLUMN hashed_password VARCHAR"))
+
+    if user_pref_exists:
+        preference_columns = {
+            column["name"] for column in inspector.get_columns("user_preferences")
+        }
+        if "user_id" not in preference_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE user_preferences ADD COLUMN user_id INTEGER"))
+        if "updated_at" not in preference_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE user_preferences ADD COLUMN updated_at DATETIME"))

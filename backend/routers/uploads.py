@@ -2,12 +2,17 @@ from fastapi import APIRouter, Body, Depends, File, HTTPException, Response, Upl
 from sqlalchemy.orm import Session
 
 from core.conflict_engine import detect_conflicts
-from core.dependencies import get_current_user
 from core.ics_builder import build_calendar_ics
 from core.priority_scoring import score_upload_events
+from core.rate_limit import rate_limit
 from core.scheduler_engine import generate_study_blocks
-from db.models import Course, CourseEvent, StudyBlock, Upload, UserPreference
+from db.models import Course, CourseEvent, StudyBlock, Upload
 from db.session import get_db
+from dependencies.resources import (
+    get_current_user_id,
+    get_latest_user_preference,
+    get_upload_or_404,
+)
 from schemas.clean_text import CleanTextRequest, CleanTextResponse
 from schemas.conflict import UploadConflictsResponse
 from schemas.extraction import CourseRead, UploadCoursesResponse
@@ -22,45 +27,25 @@ from service.chunk_text import build_extraction_text_from_chunks, chunk_outline
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 
-def _current_user_id(current_user) -> int:
-    """Support the current auth dependency shape and future User objects."""
-    user_id = getattr(current_user, "id", None)
-    if user_id is None and isinstance(current_user, dict):
-        user_id = current_user.get("user_id")
-
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="Could not identify current user")
-
-    return int(user_id)
-
-
-def _get_upload_or_404(db: Session, upload_id: int, user_id: int) -> Upload:
-    """Fetch upload scoped to the current user, raise 404 if not found or not owned."""
-    upload = db.query(Upload).filter(
-        Upload.id == upload_id,
-        Upload.user_id == user_id,
-    ).first()
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-    return upload
-
-
 @router.post("/upload-file")
 async def upload_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user_id: int = Depends(get_current_user_id),
+    _: None = rate_limit(
+        "uploads:upload-file",
+        limit=5,
+        window_seconds=60,
+        prefer_authenticated_user=True,
+    ),
 ):
-    return await handle_file_upload(file, db, user_id=_current_user_id(current_user))
+    return await handle_file_upload(file, db, user_id=current_user_id)
 
 
 @router.get("/upload-status/{upload_id}")
 async def get_upload_status(
-    upload_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    upload: Upload = Depends(get_upload_or_404),
 ):
-    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     return {
         "upload_id": upload.id,
         "original_filename": upload.original_filename,
@@ -76,11 +61,8 @@ async def get_upload_status(
 
 @router.get("/{upload_id}/courses", response_model=UploadCoursesResponse)
 async def get_upload_courses(
-    upload_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    upload: Upload = Depends(get_upload_or_404),
 ):
-    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     return UploadCoursesResponse(
         upload_id=upload.id,
         courses=[CourseRead.model_validate(course) for course in upload.courses],
@@ -89,13 +71,9 @@ async def get_upload_courses(
 
 @router.get("/{upload_id}/priority-scores", response_model=UploadPriorityScoresResponse)
 async def get_upload_priority_scores(
-    upload_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    upload: Upload = Depends(get_upload_or_404),
+    preference=Depends(get_latest_user_preference),
 ):
-    user_id = _current_user_id(current_user)
-    upload = _get_upload_or_404(db, upload_id, user_id)
-    preference = _latest_preference(db, user_id)
     scores = score_upload_events(upload.courses, preference)
     return UploadPriorityScoresResponse(
         upload_id=upload.id,
@@ -106,11 +84,8 @@ async def get_upload_priority_scores(
 
 @router.get("/{upload_id}/conflicts", response_model=UploadConflictsResponse)
 async def get_upload_conflicts(
-    upload_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    upload: Upload = Depends(get_upload_or_404),
 ):
-    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     events = [
         event
         for course in upload.courses
@@ -124,13 +99,9 @@ async def get_upload_conflicts(
 
 @router.get("/{upload_id}/study-blocks", response_model=UploadScheduleResponse)
 async def get_upload_study_blocks(
-    upload_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    upload: Upload = Depends(get_upload_or_404),
+    preference=Depends(get_latest_user_preference),
 ):
-    user_id = _current_user_id(current_user)
-    upload = _get_upload_or_404(db, upload_id, user_id)
-    preference = _latest_preference(db, user_id)
     return UploadScheduleResponse(
         upload_id=upload.id,
         preference_id=preference.id if preference else None,
@@ -143,13 +114,16 @@ async def get_upload_study_blocks(
 
 @router.post("/{upload_id}/schedule", response_model=UploadScheduleResponse)
 async def generate_upload_schedule(
-    upload_id: int,
+    upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    preference=Depends(get_latest_user_preference),
+    _: None = rate_limit(
+        "uploads:schedule",
+        limit=5,
+        window_seconds=60,
+        prefer_authenticated_user=True,
+    ),
 ):
-    user_id = _current_user_id(current_user)
-    upload = _get_upload_or_404(db, upload_id, user_id)
-    preference = _latest_preference(db, user_id)
     priority_scores = score_upload_events(upload.courses, preference)
     events = [
         event
@@ -187,11 +161,8 @@ async def generate_upload_schedule(
 
 @router.get("/{upload_id}/export.ics")
 async def export_upload_ics(
-    upload_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    upload: Upload = Depends(get_upload_or_404),
 ):
-    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     ics_content = build_calendar_ics(
         courses=upload.courses,
         study_blocks=upload.study_blocks,
@@ -207,11 +178,9 @@ async def export_upload_ics(
 
 @router.post("/parse-upload/{upload_id}")
 async def parse_upload(
-    upload_id: int,
+    upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     upload.status = "PROCESSING"
     db.commit()
     text = extract_text_from_pdf(upload, db)
@@ -225,12 +194,10 @@ async def parse_upload(
 
 @router.post("/clean-upload/{upload_id}", response_model=CleanTextResponse)
 async def clean_upload_text(
-    upload_id: int,
+    upload: Upload = Depends(get_upload_or_404),
     options: CleanTextRequest = Body(default_factory=CleanTextRequest),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
-    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     if not upload.extracted_text:
         raise HTTPException(
             status_code=400,
@@ -249,12 +216,15 @@ async def clean_upload_text(
 
 @router.post("/{upload_id}/extract", response_model=UploadCoursesResponse)
 async def extract_upload_courses(
-    upload_id: int,
+    upload: Upload = Depends(get_upload_or_404),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    _: None = rate_limit(
+        "uploads:extract",
+        limit=5,
+        window_seconds=60,
+        prefer_authenticated_user=True,
+    ),
 ):
-    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
-
     if not upload.extracted_text:
         upload.status = "PROCESSING"
         db.commit()
@@ -315,11 +285,8 @@ async def extract_upload_courses(
 
 @router.post("/chunk-upload/{upload_id}")
 async def chunk_upload_text(
-    upload_id: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    upload: Upload = Depends(get_upload_or_404),
 ):
-    upload = _get_upload_or_404(db, upload_id, _current_user_id(current_user))
     if not upload.extracted_text:
         raise HTTPException(
             status_code=400,
@@ -332,10 +299,3 @@ async def chunk_upload_text(
         "chunks": chunks,
         "extraction_text": build_extraction_text_from_chunks(chunks),
     }
-
-
-def _latest_preference(db: Session, user_id: int) -> UserPreference | None:
-    query = db.query(UserPreference)
-    if hasattr(UserPreference, "user_id"):
-        query = query.filter(UserPreference.user_id == user_id)
-    return query.order_by(UserPreference.created_at.desc(), UserPreference.id.desc()).first()
