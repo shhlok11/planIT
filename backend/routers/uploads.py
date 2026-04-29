@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from db.models import Upload
 from db.session import get_db
+from schemas.clean_text import CleanTextRequest, CleanTextResponse
+from service.clean_text_optimize import clean_extracted_text
 from service.extract_from_pdf import extract_text_from_pdf
 from service.pdf_parser import handle_file_upload
 
@@ -61,3 +63,27 @@ async def parse_upload(
         "text_preview": text[:1000],
         "text_length": len(text),
     }
+
+
+@router.post("/clean-upload/{upload_id}", response_model=CleanTextResponse)
+async def clean_upload_text(
+    upload_id: int,
+    options: CleanTextRequest = Body(default_factory=CleanTextRequest),
+    db: Session = Depends(get_db),
+):
+    upload = db.query(Upload).filter(Upload.id == upload_id).first()
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    if not upload.extracted_text:
+        raise HTTPException(
+            status_code=400,
+            detail="No extracted text found for this upload. Parse the PDF first.",
+        )
+
+    return clean_extracted_text(
+        upload_id=upload.id,
+        raw_text=upload.extracted_text,
+        options=options,
+    )

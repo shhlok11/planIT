@@ -4,14 +4,18 @@ from sqlalchemy.orm import Session
 
 from db.models import Upload
 
+PAGE_BREAK_TOKEN = "<<PAGE_BREAK>>"
+
 
 def extract_text_from_pdf(upload: Upload, db: Session) -> str:
     try:
         with fitz.open(upload.storage_path) as doc:
-            text = ""
+            page_texts = []
 
             for page in doc:
-                text += page.get_text()
+                page_texts.append(page.get_text())
+
+            text = f"\n{PAGE_BREAK_TOKEN}\n".join(page_texts)
 
         if not text.strip():
             raise HTTPException(
