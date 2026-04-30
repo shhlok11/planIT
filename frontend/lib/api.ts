@@ -37,16 +37,110 @@ export class ApiError extends Error {
   }
 }
 
-async function readErrorMessage(response: Response) {
-  const fallback = `Request failed with status ${response.status}`;
+function friendlyStatusMessage(status: number) {
+  if (status === 400) return "That request could not be completed. Check the details and try again.";
+  if (status === 401) return "Your session expired. Sign in again to continue.";
+  if (status === 403) return "You do not have access to that item.";
+  if (status === 404) return "We could not find that item. It may have been moved or deleted.";
+  if (status === 409) return "That change conflicts with the current plan. Refresh and try again.";
+  if (status === 413) return "That file is too large to upload.";
+  if (status === 415) return "That file type is not supported. Upload a PDF.";
+  if (status === 422) return "Some required details are missing or invalid.";
+  if (status === 429) return "Too many requests came in at once. Wait a moment and try again.";
+  if (status >= 500) return "The server ran into a problem. Try again in a moment.";
+  return "Something went wrong. Try again.";
+}
+
+function decodeErrorText(value: string) {
+  const plusAsSpaces = value.replace(/\+/g, " ");
+  try {
+    return decodeURIComponent(plusAsSpaces);
+  } catch {
+    return plusAsSpaces;
+  }
+}
+
+function formatValidationIssues(issues: unknown[]) {
+  const messages = issues
+    .map((issue) => {
+      if (typeof issue === "string") return issue;
+      if (!issue || typeof issue !== "object") return null;
+
+      const record = issue as { loc?: unknown; msg?: unknown };
+      if (typeof record.msg !== "string") return null;
+
+      const field = Array.isArray(record.loc)
+        ? record.loc.filter((part) => typeof part === "string" || typeof part === "number").at(-1)
+        : null;
+
+      return field ? `${field}: ${record.msg}` : record.msg;
+    })
+    .filter((message): message is string => Boolean(message));
+
+  if (!messages.length) return null;
+
+  return `Some required details are missing or invalid: ${messages.slice(0, 2).join("; ")}.`;
+}
+
+function extractErrorMessage(payload: unknown): string | null {
+  if (typeof payload === "string") return payload;
+  if (!payload || typeof payload !== "object") return null;
+
+  const record = payload as { detail?: unknown; message?: unknown; error?: unknown };
+
+  if (Array.isArray(record.detail)) {
+    return formatValidationIssues(record.detail);
+  }
+
+  if (typeof record.detail === "string") return record.detail;
+  if (typeof record.message === "string") return record.message;
+  if (typeof record.error === "string") return record.error;
+  return null;
+}
+
+export function normalizeErrorMessage(value: unknown, fallback = "Something went wrong. Try again.") {
+  if (typeof value !== "string") return fallback;
+
+  const decoded = decodeErrorText(value)
+    .replace(/\brequest failed with status\s+\d{3}\b/gi, "")
+    .replace(/\bHTTP\s+\d{3}\b/gi, "")
+    .replace(/^\s*\d{3}\s*[:\-]\s*/g, "")
+    .trim();
+
+  if (!decoded) return fallback;
+
+  const genericServerMessages = new Set([
+    "bad request",
+    "unauthorized",
+    "forbidden",
+    "not found",
+    "unprocessable entity",
+    "internal server error",
+    "service unavailable",
+  ]);
+
+  if (genericServerMessages.has(decoded.toLowerCase())) return fallback;
+
+  return decoded;
+}
+
+export async function readApiErrorMessage(response: Response) {
+  const fallback = friendlyStatusMessage(response.status);
+
+  let bodyText = "";
 
   try {
-    const data = await response.json();
-    if (typeof data?.detail === "string") return data.detail;
-    if (typeof data?.message === "string") return data.message;
-    return fallback;
+    bodyText = await response.text();
   } catch {
     return fallback;
+  }
+
+  if (!bodyText) return fallback;
+
+  try {
+    return normalizeErrorMessage(extractErrorMessage(JSON.parse(bodyText)), fallback);
+  } catch {
+    return normalizeErrorMessage(bodyText, fallback);
   }
 }
 
@@ -74,7 +168,7 @@ async function apiFetch<T>(path: string, init: RequestInit = {}, token?: string 
   }
 
   if (!response.ok) {
-    throw new ApiError(await readErrorMessage(response), response.status);
+    throw new ApiError(await readApiErrorMessage(response), response.status);
   }
 
   if (response.status === 204) {

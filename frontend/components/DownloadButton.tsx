@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { normalizeErrorMessage, readApiErrorMessage } from "@/lib/api";
+
 interface DownloadButtonProps {
   pdfHref?: string;
   icsHref?: string;
@@ -13,6 +15,7 @@ export function DownloadButton({ pdfHref, icsHref, token }: DownloadButtonProps)
   const [pdfTheme, setPdfTheme] = useState<"dark" | "white">("dark");
   const [isOpen, setIsOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   async function downloadPdf(theme: "dark" | "white") {
     if (!pdfHref) return;
@@ -22,8 +25,7 @@ export function DownloadButton({ pdfHref, icsHref, token }: DownloadButtonProps)
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Download failed");
+      throw new Error(await readApiErrorMessage(response));
     }
 
     const blob = await response.blob();
@@ -46,8 +48,7 @@ export function DownloadButton({ pdfHref, icsHref, token }: DownloadButtonProps)
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Download failed");
+      throw new Error(await readApiErrorMessage(response));
     }
 
     const blob = await response.blob();
@@ -63,13 +64,20 @@ export function DownloadButton({ pdfHref, icsHref, token }: DownloadButtonProps)
     window.setTimeout(() => setIsReady(false), 1600);
   }
 
-  function handleExport() {
-    if (mode === "pdf") {
-      void downloadPdf(pdfTheme);
-      return;
-    }
+  async function handleExport() {
+    setExportError(null);
 
-    void downloadIcs();
+    try {
+      if (mode === "pdf") {
+        await downloadPdf(pdfTheme);
+        return;
+      }
+
+      await downloadIcs();
+    } catch (err) {
+      setIsReady(false);
+      setExportError(normalizeErrorMessage(err instanceof Error ? err.message : null, "Export failed. Try again."));
+    }
   }
 
   return (
@@ -146,9 +154,11 @@ export function DownloadButton({ pdfHref, icsHref, token }: DownloadButtonProps)
             </div>
           )}
 
-          <button className={`export-action ${mode}`} onClick={handleExport}>
+          <button className={`export-action ${mode}`} onClick={() => void handleExport()}>
             Export {mode.toUpperCase()}
           </button>
+
+          {exportError ? <div className="error-banner export-error">{exportError}</div> : null}
 
           <div className={`export-ready ${isReady ? "show" : ""}`}>
             File ready to download

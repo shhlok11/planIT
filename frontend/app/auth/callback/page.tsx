@@ -20,7 +20,7 @@ export default function AuthCallbackPage() {
       return;
     }
 
-    router.replace("/auth/error#error=No+access+token+received");
+    router.replace(`/auth/error#error=${encodeURIComponent("No access token received")}`);
   }, [router]);
 
   return (

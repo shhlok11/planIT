@@ -11,10 +11,22 @@ interface SpotlightCardProps {
 }
 
 const accentMap = {
-  violet: "rgba(124, 58, 237, 0.34)",
-  cyan: "rgba(6, 182, 212, 0.28)",
-  amber: "rgba(245, 158, 11, 0.28)",
-  rose: "rgba(244, 114, 182, 0.26)",
+  violet: {
+    active: "rgba(124, 58, 237, 0.42)",
+    rest: "rgba(124, 58, 237, 0.18)",
+  },
+  cyan: {
+    active: "rgba(6, 182, 212, 0.36)",
+    rest: "rgba(6, 182, 212, 0.16)",
+  },
+  amber: {
+    active: "rgba(245, 158, 11, 0.36)",
+    rest: "rgba(245, 158, 11, 0.15)",
+  },
+  rose: {
+    active: "rgba(244, 114, 182, 0.34)",
+    rest: "rgba(244, 114, 182, 0.14)",
+  },
 } as const;
 
 export function SpotlightCard({
@@ -29,8 +41,7 @@ export function SpotlightCard({
     () => ({
       "--spotlight-x": `${pointer.x}%`,
       "--spotlight-y": `${pointer.y}%`,
-      "--spotlight-color": accentMap[accent],
-      "--spotlight-opacity": pointer.active ? 1 : 0.72,
+      "--spotlight-color": accentMap[accent][pointer.active ? "active" : "rest"],
     }) as CSSProperties,
     [accent, pointer.active, pointer.x, pointer.y],
   );

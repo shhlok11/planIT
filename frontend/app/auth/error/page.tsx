@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { normalizeErrorMessage } from "@/lib/api";
+
 export default function AuthErrorPage() {
   const [message, setMessage] = useState("Authentication failed.");
 
   useEffect(() => {
     const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
     const params = new URLSearchParams(hash);
-    setMessage(params.get("error") || "Authentication failed.");
+    setMessage(normalizeErrorMessage(params.get("error"), "Authentication failed. Please try signing in again."));
   }, []);
 
   return (

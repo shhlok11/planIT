@@ -267,7 +267,7 @@ export default function HomePage() {
             onUpload={handleUpload}
           />
 
-          <div style={{ marginTop: "1.25rem", width: "min(620px, 100%)", marginInline: "auto" }}>
+          <div className="landing-reveal-wrap">
             <TextRevealCard
               caption="Aceternity-style reveal"
               text="Raw syllabus in."
