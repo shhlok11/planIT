@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from core.dependencies import get_current_user
-from db.models import Course, CourseEvent, Upload, User, UserPreference
+from db.models import Course, CourseEvent, Plan, Upload, User, UserPreference
 from db.session import get_db
 
 
@@ -23,6 +23,21 @@ def get_upload_or_404(
     if upload is None:
         raise HTTPException(status_code=404, detail="Upload not found")
     return upload
+
+
+def get_plan_or_404(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Plan:
+    plan = (
+        db.query(Plan)
+        .filter(Plan.id == plan_id, Plan.user_id == current_user.id)
+        .first()
+    )
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return plan
 
 
 def get_course_or_404(

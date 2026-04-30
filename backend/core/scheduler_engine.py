@@ -28,7 +28,6 @@ INTENSITY_HOUR_MULTIPLIERS = {
 
 def generate_study_blocks(
     *,
-    upload_id: int,
     courses: list[Course],
     preference: UserPreference | None,
     priority_scores: list[dict[str, Any]],
@@ -61,7 +60,6 @@ def generate_study_blocks(
 
     for course, event, score in candidates:
         event_blocks = _build_blocks_for_event(
-            upload_id=upload_id,
             course=course,
             event=event,
             score=score,
@@ -78,7 +76,6 @@ def generate_study_blocks(
 
 def _build_blocks_for_event(
     *,
-    upload_id: int,
     course: Course,
     event: CourseEvent,
     score: dict[str, Any],
@@ -126,7 +123,7 @@ def _build_blocks_for_event(
 
         blocks.append(
             StudyBlockCreate(
-                upload_id=upload_id,
+                upload_id=course.upload_id,
                 course_id=course.id,
                 event_id=event.id,
                 title=f"Study {course.course_code}: {event.title}",

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mission Calendar - planIT</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@400;500;600;700;800&amp;family=Syne:wght@500;600;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#acedff",
+                        "primary": "#d2bbff",
+                        "primary-fixed": "#eaddff",
+                        "on-secondary-container": "#00424e",
+                        "on-background": "#e2e1f0",
+                        "inverse-primary": "#732ee4",
+                        "surface-container-high": "#282934",
+                        "surface": "#11131d",
+                        "outline-variant": "#4a4455",
+                        "outline": "#958da1",
+                        "on-primary-container": "#ede0ff",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "secondary-container": "#03b5d3",
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "tertiary-fixed": "#dbe1ff",
+                        "inverse-on-surface": "#2f303b",
+                        "primary-container": "#7c3aed",
+                        "surface-container-highest": "#33343f",
+                        "surface-variant": "#33343f",
+                        "surface-tint": "#d2bbff",
+                        "primary-fixed-dim": "#d2bbff",
+                        "secondary": "#4cd7f6",
+                        "on-surface-variant": "#ccc3d8",
+                        "inverse-surface": "#e2e1f0",
+                        "surface-container-lowest": "#0c0e17",
+                        "on-tertiary-container": "#e0e5ff",
+                        "on-error": "#690005",
+                        "on-surface": "#e2e1f0",
+                        "surface-container-low": "#1a1b25",
+                        "on-secondary": "#003640",
+                        "on-primary-fixed": "#25005a",
+                        "surface-dim": "#11131d",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "on-tertiary": "#002a78",
+                        "on-primary": "#3f008e",
+                        "error-container": "#93000a",
+                        "tertiary": "#b4c5ff",
+                        "surface-container": "#1e1f29",
+                        "background": "#11131d",
+                        "on-secondary-fixed": "#001f26",
+                        "tertiary-container": "#185ce4",
+                        "on-tertiary-fixed-variant": "#003ea8",
+                        "surface-bright": "#373844",
+                        "on-tertiary-fixed": "#00174b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Syne", "sans-serif"],
+                        "display": ["Syne", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Syne", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #05060F;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(124, 58, 237, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
+            background-attachment: fixed;
+            position: relative;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.02) 2px, rgba(255, 255, 255, 0.02) 4px);
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.5;
+        }
+        .ghost-border {
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .ambient-glow-primary {
+            box-shadow: 0 0 40px rgba(124, 58, 237, 0.15);
+        }
+        .ambient-glow-secondary {
+            box-shadow: 0 0 40px rgba(6, 182, 212, 0.1);
+        }
+    </style>
+</head>
+<body class="text-on-background font-body min-h-screen flex antialiased">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 z-40 bg-[#05060F]/40 backdrop-blur-3xl border-r border-white/5 shadow-2xl pt-24 pb-8">
+<div class="px-6 mb-8">
+<h2 class="text-violet-500 font-bold font-headline tracking-tighter italic text-2xl mb-1">planIT</h2>
+<p class="font-['JetBrains_Mono'] text-[10px] text-white/50 uppercase tracking-widest">MISSION CONTROL</p>
+<p class="font-['JetBrains_Mono'] text-[10px] text-white/30 uppercase tracking-widest">Active Session: 4h 12m</p>
+</div>
+<div class="px-4 mb-6">
+<button class="w-full py-3 bg-gradient-to-br from-primary-container to-tertiary-container rounded-lg text-on-primary font-mono text-sm uppercase tracking-wider hover:opacity-90 transition-opacity">
+                NEW EVENT
+            </button>
+</div>
+<div class="flex-1 flex flex-col gap-2">
+<a class="text-white/30 px-6 py-4 flex items-center gap-4 hover:text-white/60 hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200">grid_view</span>
+<span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest group-hover:translate-x-1 duration-200">Dashboard</span>
+</a>
+<a class="bg-violet-600/20 text-violet-400 border-r-4 border-violet-600 px-6 py-4 flex items-center gap-4 hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest group-hover:translate-x-1 duration-200">Calendar</span>
+</a>
+<a class="text-white/30 px-6 py-4 flex items-center gap-4 hover:text-white/60 hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200">alarm_on</span>
+<span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest group-hover:translate-x-1 duration-200">Deadlines</span>
+</a>
+<a class="text-white/30 px-6 py-4 flex items-center gap-4 hover:text-white/60 hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200">terminal</span>
+<span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest group-hover:translate-x-1 duration-200">Exams</span>
+</a>
+<a class="text-white/30 px-6 py-4 flex items-center gap-4 hover:text-white/60 hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200">tune</span>
+<span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest group-hover:translate-x-1 duration-200">Settings</span>
+</a>
+</div>
+<div class="mt-auto flex flex-col gap-2">
+<a class="text-white/30 px-6 py-4 flex items-center gap-4 hover:text-white/60 hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200">help_outline</span>
+<span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest group-hover:translate-x-1 duration-200">Support</span>
+</a>
+<a class="text-white/30 px-6 py-4 flex items-center gap-4 hover:text-white/60 hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200">logout</span>
+<span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest group-hover:translate-x-1 duration-200">Log Out</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 md:ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="hidden md:flex justify-between items-center px-8 h-20 w-full bg-[#05060F]/80 docked full-width top-0 sticky z-50 border-b border-white/10 shadow-[0_0_40px_rgba(124,58,237,0.15)] bg-white/5 backdrop-blur-xl">
+<div class="flex items-center gap-8">
+<h1 class="text-2xl font-black text-white tracking-tighter italic font-headline uppercase">planIT</h1>
+</div>
+<nav class="flex gap-6 font-['Syne'] font-extrabold tracking-tighter uppercase text-sm h-full items-center">
+<a class="text-white border-b-2 border-violet-500 pb-1 flex items-center h-full hover:bg-white/5 transition-all duration-300 active:scale-95" href="#">Calendar</a>
+<a class="text-white/40 hover:text-white/80 transition-colors flex items-center h-full hover:bg-white/5 duration-300 active:scale-95" href="#">Insights</a>
+<a class="text-white/40 hover:text-white/80 transition-colors flex items-center h-full hover:bg-white/5 duration-300 active:scale-95" href="#">Flashcards</a>
+<a class="text-white/40 hover:text-white/80 transition-colors flex items-center h-full hover:bg-white/5 duration-300 active:scale-95" href="#">Archive</a>
+</nav>
+<div class="flex items-center gap-4 text-violet-600 dark:text-violet-400">
+<button class="hover:bg-white/5 p-2 rounded-full transition-all duration-300 active:scale-95">
+<span class="material-symbols-outlined">notifications_active</span>
+</button>
+<button class="hover:bg-white/5 p-2 rounded-full transition-all duration-300 active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-surface-container-high ghost-border overflow-hidden ml-2">
+<img alt="User astronaut profile" class="w-full h-full object-cover" data-alt="A futuristic, high-tech portrait of an astronaut in a dark, atmospheric environment. Lit by intense, cinematic violet and cyan neon lights reflecting off the visor. The overall aesthetic is dark, moody, and highly detailed, fitting a 'Mission Control' sci-fi UI theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2XtjOA03Qm8xbSXiE0_0Zw6nReOtzysGrzfWPWRHHrWIjKsTOdLa9ncjD-uxBFXLXGxGlyQ3MegGIc2_qxOtOVIO8o8adqENIHsfSzLgx9WEtrJNRVURbyeMgDDRwWvl6sVzt_wZh4fz8WbAwc4rSYrgTGxwATq0d8WSuYEHQsQjq0pAbPax0BbnzCxwDnTxYg1Cpo9knfWfMxQtuYPgM_GDDNKBS0iw9seW6IxgBsGXBx0KqQXEen_tF0fzxV05MycIMmBQhu5_e"/>
+</div>
+</div>
+</header>
+<!-- Calendar Canvas -->
+<main class="flex-1 p-8 overflow-y-auto">
+<div class="max-w-[1600px] mx-auto flex flex-col xl:flex-row gap-8">
+<!-- Left: Calendar Grid -->
+<div class="flex-1 flex flex-col gap-6">
+<!-- Header -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-headline font-extrabold text-4xl tracking-tighter uppercase text-white mb-2">MISSION CALENDAR <span class="text-primary-container">—</span> WINTER 2026</h2>
+<p class="font-mono text-secondary-container text-sm">SYNCHRONIZATION: ONLINE // DISPLAY: MONTHLY</p>
+</div>
+<div class="flex bg-surface-container-lowest ghost-border rounded-lg p-1">
+<button class="px-4 py-2 bg-surface-container-high rounded text-white font-mono text-xs font-bold shadow-[0_0_15px_rgba(124,58,237,0.2)]">MONTH</button>
+<button class="px-4 py-2 text-white/50 hover:text-white font-mono text-xs transition-colors">WEEK</button>
+<button class="px-4 py-2 text-white/50 hover:text-white font-mono text-xs transition-colors">DAY</button>
+</div>
+</div>
+<!-- Grid -->
+<div class="bg-surface-container-lowest/50 backdrop-blur-md rounded-xl ghost-border overflow-hidden">
+<!-- Days of Week -->
+<div class="grid grid-cols-7 border-b border-white/5 bg-surface-container-low/50">
+<div class="p-4 text-center font-mono text-xs text-white/40">SUN</div>
+<div class="p-4 text-center font-mono text-xs text-white/40">MON</div>
+<div class="p-4 text-center font-mono text-xs text-white/40">TUE</div>
+<div class="p-4 text-center font-mono text-xs text-white/40">WED</div>
+<div class="p-4 text-center font-mono text-xs text-white/40">THU</div>
+<div class="p-4 text-center font-mono text-xs text-white/40">FRI</div>
+<div class="p-4 text-center font-mono text-xs text-white/40">SAT</div>
+</div>
+<!-- Calendar Cells -->
+<div class="grid grid-cols-7 grid-rows-5 bg-white/5 gap-[1px]">
+<!-- Row 1 -->
+<div class="bg-surface-container-low/80 min-h-[140px] p-2 hover:bg-surface-container-high/80 transition-colors group">
+<span class="font-mono text-xs text-white/30 block mb-2">28</span>
+</div>
+<div class="bg-surface-container-low/80 min-h-[140px] p-2 hover:bg-surface-container-high/80 transition-colors group">
+<span class="font-mono text-xs text-white/30 block mb-2">29</span>
+</div>
+<div class="bg-surface-container-low/80 min-h-[140px] p-2 hover:bg-surface-container-high/80 transition-colors group">
+<span class="font-mono text-xs text-white/30 block mb-2">30</span>
+</div>
+<div class="bg-surface-container-low/80 min-h-[140px] p-2 hover:bg-surface-container-high/80 transition-colors group">
+<span class="font-mono text-xs text-white/30 block mb-2">31</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">1</span>
+<div class="bg-cyan-500/10 border border-cyan-500/20 rounded px-2 py-1 mb-1 hover:bg-cyan-500/20 hover:border-cyan-500/50 cursor-pointer transition-all shadow-[0_0_10px_rgba(6,182,212,0.1)]">
+<span class="font-mono text-[10px] text-cyan-400 block truncate">09:00 // ASTROPHYSICS</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">2</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">3</span>
+</div>
+<!-- Row 2 -->
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group relative overflow-hidden">
+<div class="absolute inset-0 bg-red-500/5 z-0 pointer-events-none"></div>
+<span class="font-mono text-xs text-error block mb-2 relative z-10 flex items-center gap-1">
+                                    4 <span class="material-symbols-outlined text-[14px] animate-pulse">warning</span>
+</span>
+<div class="relative z-10 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1 mb-1 hover:bg-amber-500/20 hover:border-amber-500/50 cursor-pointer transition-all shadow-[0_0_10px_rgba(245,158,11,0.1)]">
+<span class="font-mono text-[10px] text-amber-400 block truncate">14:00 // ORBITAL MECH EXAM</span>
+</div>
+<div class="relative z-10 bg-red-500/10 border border-red-500/20 rounded px-2 py-1 mb-1 hover:bg-red-500/20 hover:border-red-500/50 cursor-pointer transition-all shadow-[0_0_10px_rgba(239,68,68,0.1)]">
+<span class="font-mono text-[10px] text-red-400 block truncate">15:00 // LAB REPORT DUE</span>
+</div>
+</div>
+<!-- Fill remaining grid cells generically for visual structure -->
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">5</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">6</span>
+<div class="bg-cyan-500/10 border border-cyan-500/20 rounded px-2 py-1 mb-1 hover:bg-cyan-500/20 hover:border-cyan-500/50 cursor-pointer transition-all shadow-[0_0_10px_rgba(6,182,212,0.1)]">
+<span class="font-mono text-[10px] text-cyan-400 block truncate">10:00 // FLIGHT SIM</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">7</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">8</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">9</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">10</span>
+</div>
+<!-- Row 3 -->
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">11</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">12</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">13</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">14</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">15</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">16</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">17</span>
+</div>
+<!-- Row 4 -->
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">18</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">19</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">20</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">21</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">22</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">23</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">24</span>
+</div>
+<!-- Row 5 -->
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">25</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">26</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">27</span>
+</div>
+<div class="bg-surface-container-lowest min-h-[140px] p-2 hover:bg-surface-container-high/50 transition-colors group">
+<span class="font-mono text-xs text-white block mb-2">28</span>
+</div>
+<div class="bg-surface-container-low/80 min-h-[140px] p-2 hover:bg-surface-container-high/80 transition-colors group">
+<span class="font-mono text-xs text-white/30 block mb-2">1</span>
+</div>
+<div class="bg-surface-container-low/80 min-h-[140px] p-2 hover:bg-surface-container-high/80 transition-colors group">
+<span class="font-mono text-xs text-white/30 block mb-2">2</span>
+</div>
+<div class="bg-surface-container-low/80 min-h-[140px] p-2 hover:bg-surface-container-high/80 transition-colors group">
+<span class="font-mono text-xs text-white/30 block mb-2">3</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Side Panel -->
+<div class="w-full xl:w-96 flex flex-col gap-6">
+<!-- Upcoming Sortie -->
+<div class="bg-surface-container-low/60 backdrop-blur-xl rounded-xl p-6 ghost-border shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+<h3 class="font-headline font-bold text-xl text-white mb-6 tracking-tight flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">rocket_launch</span>
+                            UPCOMING SORTIE
+                        </h3>
+<div class="flex flex-col gap-4">
+<!-- Event Item -->
+<div class="p-4 bg-surface-container-highest/50 rounded-lg ghost-border hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<span class="font-mono text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">STUDY BLOCK</span>
+<span class="font-mono text-xs text-white/50">T-MINUS 24H</span>
+</div>
+<h4 class="font-label font-bold text-white group-hover:text-cyan-300 transition-colors">Astrophysics Reading</h4>
+<p class="font-mono text-xs text-white/40 mt-1">FEB 01 // 09:00 - 11:30</p>
+</div>
+<!-- Event Item -->
+<div class="p-4 bg-surface-container-highest/50 rounded-lg ghost-border hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<span class="font-mono text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">EXAM</span>
+<span class="font-mono text-xs text-white/50">T-MINUS 3D</span>
+</div>
+<h4 class="font-label font-bold text-white group-hover:text-amber-300 transition-colors">Orbital Mechanics Midterm</h4>
+<p class="font-mono text-xs text-white/40 mt-1">FEB 04 // 14:00 - 16:00</p>
+</div>
+<!-- Event Item -->
+<div class="p-4 bg-surface-container-highest/50 rounded-lg ghost-border hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<span class="font-mono text-[10px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">DEADLINE</span>
+<span class="font-mono text-xs text-white/50">T-MINUS 3D</span>
+</div>
+<h4 class="font-label font-bold text-white group-hover:text-red-300 transition-colors">Lab Report Submission</h4>
+<p class="font-mono text-xs text-white/40 mt-1">FEB 04 // 15:00 DEADLINE</p>
+</div>
+</div>
+</div>
+<!-- Conflict Log -->
+<div class="bg-error-container/10 backdrop-blur-xl rounded-xl p-6 border border-error/20 shadow-[0_0_30px_rgba(255,180,171,0.05)] relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl text-error">warning</span>
+</div>
+<h3 class="font-headline font-bold text-xl text-error mb-4 tracking-tight flex items-center gap-2">
+<span class="material-symbols-outlined animate-pulse">crisis_alert</span>
+                            CONFLICT LOG
+                        </h3>
+<div class="p-3 bg-error-container/20 rounded-lg border-l-2 border-error text-sm">
+<p class="font-mono text-error/80 text-xs mb-1">DATE: FEB 04</p>
+<p class="font-body text-white/80 text-sm">Overlap detected between <span class="font-bold text-amber-400">Orbital Mech Exam</span> (14:00-16:00) and <span class="font-bold text-red-400">Lab Report Due</span> (15:00). Resolution required.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

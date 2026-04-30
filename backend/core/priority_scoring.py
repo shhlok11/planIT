@@ -276,8 +276,9 @@ def _apply_actionability_caps(
 ) -> float:
     days_until = _days_until(event, today)
     if days_until is not None and days_until < 0:
-        warnings.append("Past events are capped because they are not actionable")
-        return min(priority_score, 15)
+        warnings.append("Past events are marked as historical data")
+        return min(priority_score, 45)
+
     if days_until is None:
         warnings.append("Undated events are capped until reviewed")
         return min(priority_score, 65)

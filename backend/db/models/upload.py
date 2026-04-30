@@ -11,6 +11,7 @@ class Upload(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    plan_id = Column(Integer, ForeignKey("plans.id"), nullable=True, index=True)
 
     original_filename = Column(String, nullable=False)
     saved_filename = Column(String, nullable=False)
@@ -25,6 +26,7 @@ class Upload(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="uploads")
+    plan = relationship("Plan", back_populates="uploads")
     courses = relationship(
         "Course",
         back_populates="upload",

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, File, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from core.rate_limit import rate_limit
@@ -19,6 +19,7 @@ from service.upload_analysis import (
     build_and_save_schedule,
     build_conflicts_response,
     build_ics_response,
+    build_pdf_response,
     build_priority_scores_response,
     build_study_blocks_response,
 )
@@ -162,3 +163,12 @@ async def export_upload_ics(
     upload: Upload = Depends(get_upload_or_404),
 ):
     return build_ics_response(upload)
+
+
+@router.get("/{upload_id}/export.pdf")
+async def export_upload_pdf(
+    upload: Upload = Depends(get_upload_or_404),
+    preference=Depends(get_latest_user_preference),
+    theme: str = Query(default="dark", pattern="^(dark|light|white)$"),
+):
+    return build_pdf_response(upload, preference, theme=theme)

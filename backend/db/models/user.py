@@ -16,5 +16,6 @@ class User(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
 
     oauth_accounts = relationship("OAuthAccount", back_populates="user")
+    plans          = relationship("Plan", back_populates="user")
     uploads        = relationship("Upload", back_populates="user")
     preferences    = relationship("UserPreference", back_populates="user")
