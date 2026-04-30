@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from calendar import month_name
+from calendar import month_abbr, month_name
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from io import BytesIO
@@ -17,6 +17,8 @@ HEADER_H = 86
 MONTH_BAND_H = 52
 DAY_HEADER_H = 22
 CELL_PADDING = 6
+CONTENT_GAP = 14
+DEADLINE_SIDEBAR_W = 248
 
 
 Color = tuple[float, float, float]
@@ -79,6 +81,7 @@ class CalendarEntry:
     title: str
     sublabel: str
     detail: str | None
+    weight: float | None
     score: float | None
     tone: str
     kind: str
@@ -165,8 +168,8 @@ def _build_calendar_pdf(
             ]
             page = _new_page(document, theme)
             _draw_month_shell(page, title, subtitle_lines, month_anchor, theme)
-            _draw_month_watchouts(page, month_anchor, month_entries, conflicts, course_colors, theme)
             _draw_month_calendar(page, month_anchor, month_entries, theme)
+            _draw_month_deadline_sidebar(page, month_anchor, month_entries, conflicts, course_colors, theme)
 
     buffer = BytesIO()
     document.save(buffer)
@@ -203,6 +206,7 @@ def _collect_entries(
                     title=event.title,
                     sublabel=course.course_code,
                     detail=" | ".join(detail_parts) if detail_parts else None,
+                    weight=event.weight,
                     score=score["priority_score"] if score else None,
                     tone=tone,
                     kind="event",
@@ -219,6 +223,7 @@ def _collect_entries(
                 title=block.title,
                 sublabel=block.start_time.strftime("%H:%M"),
                 detail=block.reason,
+                weight=None,
                 score=block.priority_score,
                 tone="study",
                 kind="study",
@@ -383,8 +388,120 @@ def _draw_month_watchouts(
         page.insert_text((x + 12, y), _fit_text(course_code, 12), fontsize=7, fontname="helv", color=theme.text)
 
 
+def _draw_month_deadline_sidebar(
+    page: fitz.Page,
+    month_anchor: date,
+    month_entries: list[CalendarEntry],
+    conflicts: list[dict],
+    course_colors: dict[str, Color],
+    theme: PdfTheme,
+) -> None:
+    rect = _deadline_sidebar_rect()
+    _draw_panel(page, rect, theme)
+
+    deadlines = [entry for entry in month_entries if entry.kind == "event"]
+    total_weight = sum(entry.weight or 0 for entry in deadlines)
+    highest_score = max((entry.score or 0 for entry in deadlines), default=0)
+
+    page.insert_text((rect.x0 + 14, rect.y0 + 20), "MONTH DEADLINES", fontsize=8, fontname="helv", color=theme.cyan)
+    page.insert_text(
+        (rect.x0 + 14, rect.y0 + 44),
+        f"{month_name[month_anchor.month]} {month_anchor.year}",
+        fontsize=14,
+        fontname="helv",
+        color=theme.text,
+    )
+
+    metric_y = rect.y0 + 58
+    metric_w = (rect.width - 38) / 2
+    _draw_metric_pill(page, fitz.Rect(rect.x0 + 14, metric_y, rect.x0 + 14 + metric_w, metric_y + 36), "Total wt", _percent_label(total_weight), theme.violet, theme)
+    _draw_metric_pill(page, fitz.Rect(rect.x0 + 24 + metric_w, metric_y, rect.x1 - 14, metric_y + 36), "Priority", _score_label(highest_score), theme.amber, theme)
+
+    watchouts = _month_watchouts(month_anchor, conflicts, month_entries)
+    watch_y = metric_y + 52
+    page.insert_text((rect.x0 + 14, watch_y), "WATCHOUT", fontsize=7, fontname="helv", color=theme.muted)
+    if watchouts:
+        _insert_wrapped(
+            page,
+            fitz.Rect(rect.x0 + 14, watch_y + 8, rect.x1 - 14, watch_y + 31),
+            watchouts[0],
+            7.2,
+            theme.text,
+        )
+    else:
+        page.insert_text((rect.x0 + 14, watch_y + 18), "No major pressure detected.", fontsize=7.2, fontname="helv", color=theme.muted)
+
+    legend_y = watch_y + 42
+    _draw_sidebar_course_legend(page, fitz.Rect(rect.x0 + 14, legend_y, rect.x1 - 14, legend_y + 34), course_colors, theme)
+
+    list_rect = fitz.Rect(rect.x0 + 12, legend_y + 42, rect.x1 - 12, rect.y1 - 12)
+    if not deadlines:
+        _insert_wrapped(page, list_rect, "No dated deadlines appear in this month.", 9, theme.muted)
+        return
+
+    gap = 4
+    item_h = min(42, max(22, (list_rect.height - gap * (len(deadlines) - 1)) / len(deadlines)))
+    title_size = 7.4 if item_h >= 30 else 6.4
+    meta_size = 6.4 if item_h >= 30 else 5.8
+    y = list_rect.y0
+
+    for entry in deadlines:
+        item_rect = fitz.Rect(list_rect.x0, y, list_rect.x1, min(y + item_h, list_rect.y1))
+        if item_rect.height < 17:
+            break
+        _draw_deadline_item(page, item_rect, entry, title_size, meta_size, theme)
+        y += item_h + gap
+
+
+def _draw_metric_pill(page: fitz.Page, rect: fitz.Rect, label: str, value: str, color: Color, theme: PdfTheme) -> None:
+    page.draw_rect(rect, color=_soften(color, 0.8, theme), fill=_soften(color, 0.16, theme), width=0.7)
+    page.insert_text((rect.x0 + 7, rect.y0 + 12), label.upper(), fontsize=5.7, fontname="helv", color=theme.muted)
+    page.insert_text((rect.x0 + 7, rect.y0 + 28), value, fontsize=10, fontname="helv", color=theme.text)
+
+
+def _draw_sidebar_course_legend(page: fitz.Page, rect: fitz.Rect, course_colors: dict[str, Color], theme: PdfTheme) -> None:
+    page.insert_text((rect.x0, rect.y0 + 8), "COURSES", fontsize=7, fontname="helv", color=theme.muted)
+    for index, (course_code, color) in enumerate(list(course_colors.items())[:6]):
+        x = rect.x0 + (index % 2) * (rect.width / 2)
+        y = rect.y0 + 22 + (index // 2) * 11
+        page.draw_circle((x + 3, y - 3), 2.8, color=color, fill=color)
+        page.insert_text((x + 10, y), _fit_text(course_code, 13), fontsize=6.2, fontname="helv", color=theme.text)
+
+
+def _draw_deadline_item(
+    page: fitz.Page,
+    rect: fitz.Rect,
+    entry: CalendarEntry,
+    title_size: float,
+    meta_size: float,
+    theme: PdfTheme,
+) -> None:
+    fill = _soften(entry.color, 0.12, theme)
+    page.draw_rect(rect, color=_soften(entry.color, 0.78, theme), fill=fill, width=0.65)
+
+    date_label = f"{month_abbr[entry.date_value.month]} {entry.date_value.day}"
+    weight_label = _weight_value_label(entry.weight)
+    score_label = _score_label(entry.score)
+    meta = f"{date_label}  |  {entry.sublabel}  |  {_deadline_type_label(entry)}"
+
+    page.draw_circle((rect.x0 + 7, rect.y0 + 11), 2.5, color=entry.color, fill=entry.color)
+    page.insert_text((rect.x0 + 14, rect.y0 + 12), _fit_text_to_width(meta, rect.width - 74, meta_size), fontsize=meta_size, fontname="helv", color=theme.muted)
+
+    weight_rect = fitz.Rect(rect.x1 - 52, rect.y0 + 4, rect.x1 - 5, rect.y0 + 17)
+    page.draw_rect(weight_rect, color=_soften(entry.color, 0.7, theme), fill=_soften(entry.color, 0.25, theme), width=0.5)
+    page.insert_text((weight_rect.x0 + 4, weight_rect.y0 + 9), _fit_text(weight_label, 8), fontsize=5.8, fontname="helv", color=theme.text)
+
+    title_y = rect.y0 + (26 if rect.height >= 30 else 20)
+    title_width = rect.width - 18
+    title = _fit_text_to_width(entry.title, title_width, title_size)
+    page.insert_text((rect.x0 + 8, title_y), title, fontsize=title_size, fontname="helv", color=theme.text)
+
+    if rect.height >= 36:
+        page.insert_text((rect.x0 + 8, rect.y1 - 7), f"Priority {score_label}", fontsize=5.8, fontname="helv", color=theme.muted)
+
+
 def _draw_month_calendar(page: fitz.Page, month_anchor: date, entries: list[CalendarEntry], theme: PdfTheme) -> None:
-    grid_rect = _calendar_rect()
+    grid_rect = _calendar_rect(with_sidebar=True)
     _draw_panel(page, grid_rect, theme)
 
     weekday_labels = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
@@ -417,7 +534,7 @@ def _draw_month_calendar(page: fitz.Page, month_anchor: date, entries: list[Cale
         page.insert_text((x0 + CELL_PADDING, y0 + 13), str(current_day.day), fontsize=8, fontname="helv", color=theme.text if in_month else theme.muted)
 
         day_entries = entries_by_day.get(current_day.date().isoformat(), [])
-        visible_entries = day_entries[:2]
+        visible_entries = day_entries[:3]
         chip_y = y0 + 19
         for entry in visible_entries:
             chip_color = entry.color
@@ -452,8 +569,15 @@ def _draw_month_calendar(page: fitz.Page, month_anchor: date, entries: list[Cale
             _draw_overflow_entries(page, overflow_rect, overflow_entries, overflow_font_size, theme)
 
 
-def _calendar_rect() -> fitz.Rect:
-    return fitz.Rect(MARGIN, HEADER_H + MONTH_BAND_H + 12, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - MARGIN)
+def _calendar_rect(*, with_sidebar: bool = False) -> fitz.Rect:
+    x1 = PAGE_WIDTH - MARGIN
+    if with_sidebar:
+        x1 -= DEADLINE_SIDEBAR_W + CONTENT_GAP
+    return fitz.Rect(MARGIN, HEADER_H + 14, x1, PAGE_HEIGHT - MARGIN)
+
+
+def _deadline_sidebar_rect() -> fitz.Rect:
+    return fitz.Rect(PAGE_WIDTH - MARGIN - DEADLINE_SIDEBAR_W, HEADER_H + 14, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - MARGIN)
 
 
 def _draw_panel(page: fitz.Page, rect: fitz.Rect, theme: PdfTheme, glow: Color | None = None) -> None:
@@ -499,7 +623,8 @@ def _event_chip_label(entry: CalendarEntry) -> str:
     if entry.kind == "study":
         return f"Study - {entry.sublabel}"
     if entry.course_code:
-        return f"{entry.course_code}: {entry.title}"
+        suffix = "Exam" if entry.tone == "exam" else _weight_value_label(entry.weight)
+        return f"{entry.course_code} {suffix}"
     return entry.title
 
 
@@ -588,6 +713,32 @@ def _weight_label(weight: float) -> str:
     return "No grade weight listed"
 
 
+def _weight_value_label(weight: float | None) -> str:
+    if weight is None:
+        return "No wt"
+    return _percent_label(weight)
+
+
+def _percent_label(value: float) -> str:
+    if float(value).is_integer():
+        return f"{int(value)}%"
+    return f"{value:.1f}%"
+
+
+def _score_label(score: float | None) -> str:
+    if score is None:
+        return "N/A"
+    if float(score).is_integer():
+        return str(int(score))
+    return f"{score:.1f}"
+
+
+def _deadline_type_label(entry: CalendarEntry) -> str:
+    if entry.tone == "exam":
+        return "Exam"
+    return "Deadline"
+
+
 def _month_watchouts(month_anchor: date, conflicts: list[dict], entries: list[CalendarEntry]) -> list[str]:
     watchouts: list[str] = []
     month_conflicts = [
@@ -619,21 +770,6 @@ def _month_feel(entries: list[CalendarEntry], theme: PdfTheme) -> tuple[str, str
         return ("Heavy month", "Clustered work. Review dates early.", theme.rose)
     if exams >= 1 or deadlines >= 4:
         return ("Busy month", "Enough activity to plan ahead.", theme.amber)
-    if deadlines or study_blocks:
-        return ("Manageable month", "Workload is spread out.", theme.green)
-    return ("Quiet month", "No major dated work appears here.", theme.muted)
-
-
-def _select_theme(theme: str) -> PdfTheme:
-    normalized = theme.strip().lower()
-    if normalized in {"white", "light"}:
-        return LIGHT_THEME
-    return DARK_THEME
-
-
-def _soften(color: Color, alpha: float, theme: PdfTheme) -> Color:
-    return tuple(min(1.0, channel * alpha + theme.bg[index] * (1 - alpha)) for index, channel in enumerate(color))
-    return ("Busy month", "Enough activity to plan ahead.", theme.amber)
     if deadlines or study_blocks:
         return ("Manageable month", "Workload is spread out.", theme.green)
     return ("Quiet month", "No major dated work appears here.", theme.muted)

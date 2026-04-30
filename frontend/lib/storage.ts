@@ -16,42 +16,56 @@ export interface StoredPlanRecord {
   createdAt: string;
 }
 
-export function getStoredToken(): string | null {
+type BrowserStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+function getBrowserStorage(): BrowserStorage | null {
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(TOKEN_KEY);
+
+  try {
+    const storage = window.localStorage;
+    if (
+      !storage
+      || typeof storage.getItem !== "function"
+      || typeof storage.setItem !== "function"
+      || typeof storage.removeItem !== "function"
+    ) {
+      return null;
+    }
+    return storage;
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredToken(): string | null {
+  return getBrowserStorage()?.getItem(TOKEN_KEY) ?? null;
 }
 
 export function setStoredToken(token: string) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(TOKEN_KEY, token);
+  getBrowserStorage()?.setItem(TOKEN_KEY, token);
 }
 
 export function clearStoredToken() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(TOKEN_KEY);
+  getBrowserStorage()?.removeItem(TOKEN_KEY);
 }
 
 export function getStoredUploadId(): number | null {
-  if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(UPLOAD_KEY);
+  const value = getBrowserStorage()?.getItem(UPLOAD_KEY);
   if (!value) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function setStoredUploadId(uploadId: number) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(UPLOAD_KEY, String(uploadId));
+  getBrowserStorage()?.setItem(UPLOAD_KEY, String(uploadId));
 }
 
 export function clearStoredUploadId() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(UPLOAD_KEY);
+  getBrowserStorage()?.removeItem(UPLOAD_KEY);
 }
 
 export function getStoredUploadHistory(): StoredUploadRecord[] {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(UPLOAD_HISTORY_KEY);
+  const raw = getBrowserStorage()?.getItem(UPLOAD_HISTORY_KEY);
   if (!raw) return [];
 
   try {
@@ -64,33 +78,30 @@ export function getStoredUploadHistory(): StoredUploadRecord[] {
 }
 
 export function pushStoredUpload(record: StoredUploadRecord) {
-  if (typeof window === "undefined") return;
+  const storage = getBrowserStorage();
+  if (!storage) return;
   const existing = getStoredUploadHistory().filter((item) => item.uploadId !== record.uploadId);
   const next = [record, ...existing].slice(0, 12);
-  window.localStorage.setItem(UPLOAD_HISTORY_KEY, JSON.stringify(next));
+  storage.setItem(UPLOAD_HISTORY_KEY, JSON.stringify(next));
 }
 
 export function getStoredPlanId(): number | null {
-  if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(PLAN_KEY);
+  const value = getBrowserStorage()?.getItem(PLAN_KEY);
   if (!value) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function setStoredPlanId(planId: number) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(PLAN_KEY, String(planId));
+  getBrowserStorage()?.setItem(PLAN_KEY, String(planId));
 }
 
 export function clearStoredPlanId() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(PLAN_KEY);
+  getBrowserStorage()?.removeItem(PLAN_KEY);
 }
 
 export function getStoredPlanHistory(): StoredPlanRecord[] {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(PLAN_HISTORY_KEY);
+  const raw = getBrowserStorage()?.getItem(PLAN_HISTORY_KEY);
   if (!raw) return [];
 
   try {
@@ -103,16 +114,18 @@ export function getStoredPlanHistory(): StoredPlanRecord[] {
 }
 
 export function pushStoredPlan(record: StoredPlanRecord) {
-  if (typeof window === "undefined") return;
+  const storage = getBrowserStorage();
+  if (!storage) return;
   const existing = getStoredPlanHistory().filter((item) => item.planId !== record.planId);
   const next = [record, ...existing].slice(0, 12);
-  window.localStorage.setItem(PLAN_HISTORY_KEY, JSON.stringify(next));
+  storage.setItem(PLAN_HISTORY_KEY, JSON.stringify(next));
 }
 
 export function updateStoredPlanTitle(planId: number, title: string) {
-  if (typeof window === "undefined") return;
+  const storage = getBrowserStorage();
+  if (!storage) return;
   const next = getStoredPlanHistory().map((item) => (
     item.planId === planId ? { ...item, title } : item
   ));
-  window.localStorage.setItem(PLAN_HISTORY_KEY, JSON.stringify(next));
+  storage.setItem(PLAN_HISTORY_KEY, JSON.stringify(next));
 }
