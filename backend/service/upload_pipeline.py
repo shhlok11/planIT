@@ -13,6 +13,7 @@ from service.extract_from_pdf import extract_text_from_pdf
 def build_upload_status(upload: Upload) -> dict:
     return {
         "upload_id": upload.id,
+        "plan_id": upload.plan_id,
         "original_filename": upload.original_filename,
         "saved_filename": upload.saved_filename,
         "status": upload.status,

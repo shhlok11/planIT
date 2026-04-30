@@ -29,6 +29,8 @@ def get_db():
 
 def ensure_runtime_schema():
     inspector = inspect(engine)
+    if "plans" not in inspector.get_table_names():
+        return
     if "uploads" not in inspector.get_table_names():
         return
 
@@ -39,6 +41,9 @@ def ensure_runtime_schema():
     if "user_id" not in upload_columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE uploads ADD COLUMN user_id INTEGER"))
+    if "plan_id" not in upload_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE uploads ADD COLUMN plan_id INTEGER"))
 
     if "user_preferences" not in inspector.get_table_names():
         user_pref_exists = False

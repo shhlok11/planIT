@@ -8,6 +8,7 @@ from db.session import engine, ensure_runtime_schema
 from routers.auth import router as auth_router
 from routers.courses import router as courses_router
 from routers.events import router as events_router
+from routers.plans import router as plans_router
 from routers.preferences import router as preferences_router
 from routers.uploads import router as uploads_router
 
@@ -31,6 +32,7 @@ app.include_router(auth_router)
 
 # Protected at the route level with get_current_user.
 app.include_router(uploads_router, prefix="/api/v1")
+app.include_router(plans_router, prefix="/api/v1")
 app.include_router(events_router, prefix="/api/v1")
 app.include_router(courses_router, prefix="/api/v1")
 app.include_router(preferences_router, prefix="/api/v1")

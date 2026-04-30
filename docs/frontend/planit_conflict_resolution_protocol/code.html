@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Conflict Resolution Protocol - PLAN.IT</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&amp;family=Inter:wght@300..700&amp;family=JetBrains+Mono:wght@100..800&amp;family=Syne:wght@400..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#33343f",
+                        "on-tertiary-container": "#e0e5ff",
+                        "inverse-surface": "#e2e1f0",
+                        "surface-variant": "#33343f",
+                        "primary-fixed": "#eaddff",
+                        "surface-dim": "#11131d",
+                        "on-tertiary-fixed": "#00174b",
+                        "inverse-on-surface": "#2f303b",
+                        "primary-fixed-dim": "#d2bbff",
+                        "on-error": "#690005",
+                        "secondary-container": "#03b5d3",
+                        "outline-variant": "#4a4455",
+                        "on-secondary-fixed": "#001f26",
+                        "error-container": "#93000a",
+                        "on-surface": "#e2e1f0",
+                        "tertiary-fixed": "#dbe1ff",
+                        "on-background": "#e2e1f0",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed": "#acedff",
+                        "secondary": "#4cd7f6",
+                        "on-primary": "#3f008e",
+                        "primary-container": "#7c3aed",
+                        "surface-container-low": "#1a1b25",
+                        "primary": "#d2bbff",
+                        "background": "#11131d",
+                        "inverse-primary": "#732ee4",
+                        "surface-container": "#1e1f29",
+                        "surface-container-lowest": "#0c0e17",
+                        "surface-container-high": "#282934",
+                        "tertiary": "#b4c5ff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "outline": "#958da1",
+                        "on-surface-variant": "#ccc3d8",
+                        "on-tertiary-fixed-variant": "#003ea8",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#d2bbff",
+                        "on-secondary": "#003640",
+                        "tertiary-container": "#185ce4",
+                        "on-tertiary": "#002a78",
+                        "surface": "#11131d",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-secondary-container": "#00424e",
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "on-primary-fixed": "#25005a",
+                        "surface-bright": "#373844",
+                        "on-primary-container": "#ede0ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Syne", "sans-serif"],
+                        "display": ["Syne", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Syne", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .aurora-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background-color: #05060F;
+            overflow: hidden;
+        }
+        .aurora-blob-1 {
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            width: 50vw;
+            height: 50vw;
+            background: radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, rgba(124, 58, 237, 0) 70%);
+            filter: blur(60px);
+        }
+        .aurora-blob-2 {
+            position: absolute;
+            bottom: -10%;
+            right: -10%;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.1) 0%, rgba(6, 182, 212, 0) 70%);
+            filter: blur(80px);
+        }
+        .scan-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(255, 255, 255, 0.02) 0px,
+                rgba(255, 255, 255, 0.02) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            opacity: 0.5;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+        .ghost-border {
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .shimmer-hover {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer-hover::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to right,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.05) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            transform: rotate(45deg);
+            transition: transform 0.5s ease;
+            opacity: 0;
+        }
+        .shimmer-hover:hover::after {
+            transform: rotate(45deg) translate(50%, 50%);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="text-on-background bg-background font-body antialiased min-h-screen flex selection:bg-primary selection:text-on-primary">
+<!-- Atmospheric Background -->
+<div class="aurora-bg">
+<div class="aurora-blob-1"></div>
+<div class="aurora-blob-2"></div>
+</div>
+<div class="scan-line"></div>
+<!-- SideNavBar (WEB) -->
+<nav class="hidden md:flex bg-[#05060F] text-violet-500 font-['JetBrains_Mono'] text-xs tracking-widest fixed left-0 top-0 h-screen w-64 z-40 border-r border-white/5 shadow-2xl shadow-violet-900/20 flex flex-col pt-20 pb-8">
+<div class="px-6 mb-12">
+<h1 class="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-cyan-500 tracking-[-0.03em] font-headline">PLAN.IT</h1>
+<p class="text-[10px] text-slate-500 mt-1 uppercase tracking-widest">Orbital Observatory</p>
+</div>
+<div class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 text-slate-500 px-4 py-3 hover:bg-white/5 transition-all hover:translate-x-1 duration-300 cursor-pointer active:opacity-70" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span>Command</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 px-4 py-3 hover:bg-white/5 transition-all hover:translate-x-1 duration-300 cursor-pointer active:opacity-70" href="#">
+<span class="material-symbols-outlined" data-icon="target">target</span>
+<span>Objectives</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 px-4 py-3 hover:bg-white/5 transition-all hover:translate-x-1 duration-300 cursor-pointer active:opacity-70" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span>Telemetry</span>
+</a>
+<!-- ACTIVE STATE -->
+<a class="flex items-center gap-3 bg-violet-500/10 text-violet-400 border-r-4 border-violet-500 px-4 py-3 shadow-[inset_0_0_20px_rgba(124,58,237,0.1)] cursor-pointer active:opacity-70" href="#">
+<span class="material-symbols-outlined" data-icon="error">error</span>
+<span>Risk Assessment</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 px-4 py-3 hover:bg-white/5 transition-all hover:translate-x-1 duration-300 cursor-pointer active:opacity-70" href="#">
+<span class="material-symbols-outlined" data-icon="database">database</span>
+<span>Archives</span>
+</a>
+</div>
+<div class="px-4 mt-auto mb-6">
+<button class="w-full py-3 px-4 bg-gradient-to-br from-primary-container to-tertiary-container text-on-primary font-mono text-xs uppercase tracking-widest rounded-sm hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] transition-all shimmer-hover">
+                NEW MISSION
+            </button>
+</div>
+<div class="flex flex-col gap-2 mt-4 border-t border-white/5 pt-4">
+<a class="flex items-center gap-3 text-slate-500 px-4 py-2 hover:bg-white/5 transition-all text-[10px]" href="#">
+<span class="material-symbols-outlined text-[16px]" data-icon="help">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 text-slate-500 px-4 py-2 hover:bg-white/5 transition-all text-[10px]" href="#">
+<span class="material-symbols-outlined text-[16px]" data-icon="terminal">terminal</span>
+<span>Logs</span>
+</a>
+</div>
+</nav>
+<!-- Main Wrapper -->
+<div class="flex-1 md:ml-64 flex flex-col min-h-screen relative z-10">
+<!-- TopNavBar -->
+<header class="bg-[#05060F]/80 backdrop-blur-2xl text-violet-600 dark:text-violet-500 font-['Space_Grotesk'] tracking-tighter uppercase docked full-width top-0 z-50 border-b border-white/10 shadow-[0_8px_32px_rgba(124,58,237,0.1)] flex justify-between items-center w-full px-8 py-4 sticky">
+<div class="flex items-center gap-8">
+<!-- Mobile Logo Fallback (if nav hides on mobile) -->
+<div class="md:hidden text-2xl font-black text-white tracking-[-0.03em] font-headline">planIT</div>
+<nav class="hidden md:flex items-center gap-6 text-sm">
+<a class="text-slate-400 font-medium hover:text-white transition-colors hover:bg-white/5 hover:text-cyan-400 transition-all active:scale-95 duration-200 ease-out px-2 py-1" href="#">Dashboard</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors hover:bg-white/5 hover:text-cyan-400 transition-all active:scale-95 duration-200 ease-out px-2 py-1" href="#">Schedule</a>
+<!-- ACTIVE STATE -->
+<a class="text-violet-500 font-bold border-b-2 border-violet-500 pb-1 active:scale-95 duration-200 ease-out px-2" href="#">Conflicts</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors hover:bg-white/5 hover:text-cyan-400 transition-all active:scale-95 duration-200 ease-out px-2 py-1" href="#">Strategy</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="bg-surface-container-lowest border-b-2 border-transparent focus:border-primary border-t-0 border-l-0 border-r-0 text-on-surface font-mono text-xs py-2 pl-9 pr-4 w-48 focus:ring-0 focus:outline-none transition-all placeholder:text-slate-600" placeholder="QUERY..." type="text"/>
+</div>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors p-2">
+<span class="material-symbols-outlined" data-icon="notifications_active">notifications_active</span>
+</button>
+<button class="text-slate-400 hover:text-cyan-400 transition-colors p-2">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-sm bg-surface-container-highest ghost-border overflow-hidden ml-2">
+<img alt="Commander Profile" class="w-full h-full object-cover opacity-80" data-alt="A cinematic, high-contrast portrait of a digital persona in a dark, atmospheric sci-fi setting. The lighting is moody, with cool cyan and electric violet rim lights highlighting the subject against a deep void background. The aesthetic is highly technical, editorial, and sophisticated, fitting a high-end mission control interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6geSwkiTbecXMewpMdy16MmxUxi8EK9SIr7NYYGYaJwPwwsR4My_8mEQsEYZaIFDuMQrC_W7GFpFHk8L28g0kcY6jG5J3GgTVQ0oZ2anENQU0vJ0Wxu7P94dx2PQSfMvWSqwfRTAqgHNZvGO5ch1fwIB2nuDWniTSU3kr7UB9vhOZ9irLRjEBAp57SqmK5vLCf9WXC4xVERD0bTpTpveSMa_te6JFqGn1A3llYnSyPu0dHWCrlaioEhkMFFtb4AwsZibFE7KWv84m"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 p-6 lg:p-10 flex flex-col lg:flex-row gap-8 overflow-y-auto">
+<!-- Left Column: Primary Content -->
+<div class="flex-1 flex flex-col gap-8">
+<!-- Header Section -->
+<header class="flex flex-col gap-2">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-error text-3xl animate-pulse" style="font-variation-settings: 'FILL' 1;">warning</span>
+<h2 class="text-4xl lg:text-5xl font-headline font-extrabold tracking-[-0.03em] text-white">Conflict Resolution Protocol</h2>
+</div>
+<p class="font-mono text-error text-sm tracking-wider flex items-center gap-2 pl-12">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+                        3 Critical Overlaps Detected
+                    </p>
+</header>
+<!-- Severity Filter -->
+<div class="flex items-center gap-3 flex-wrap pl-1">
+<button class="px-4 py-2 bg-surface-container-highest ghost-border text-on-surface font-label text-xs uppercase tracking-widest rounded hover:bg-surface-bright transition-colors">
+                        All (3)
+                    </button>
+<button class="px-4 py-2 bg-error/10 border border-error/30 text-error font-label text-xs uppercase tracking-widest rounded shadow-[0_0_15px_rgba(255,180,171,0.1)] flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                        Critical (2)
+                    </button>
+<button class="px-4 py-2 bg-secondary/10 border border-secondary/30 text-secondary font-label text-xs uppercase tracking-widest rounded flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                        Warnings (1)
+                    </button>
+</div>
+<!-- Conflict List -->
+<div class="flex flex-col gap-6">
+<!-- Conflict Card 1 -->
+<article class="glass-panel ghost-border rounded-xl p-6 flex flex-col gap-6 relative overflow-hidden group">
+<!-- Background glow effect on hover -->
+<div class="absolute inset-0 bg-gradient-to-r from-error/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+<!-- Top Badge -->
+<div class="flex justify-between items-start">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-error/10 text-error font-mono text-[10px] uppercase tracking-widest rounded-sm">
+<span class="material-symbols-outlined text-[14px]">crisis_alert</span>
+                                CRITICAL // T-MINUS 4D
+                            </div>
+<span class="font-mono text-slate-500 text-xs">ID: CNF-892A</span>
+</div>
+<!-- Content Grid -->
+<div class="flex flex-col md:flex-row items-center gap-4 md:gap-8 relative">
+<!-- Left Event -->
+<div class="flex-1 w-full bg-surface-container-low p-4 rounded-lg ghost-border relative">
+<div class="absolute top-0 left-0 w-1 h-full bg-error rounded-l-lg"></div>
+<p class="font-mono text-[10px] text-slate-400 mb-1">EVENT ALPHA</p>
+<h3 class="font-headline font-bold text-lg text-white mb-2">Midterm: Quantum Mech</h3>
+<p class="font-mono text-xs text-slate-300">Feb 04 // 14:00 - 16:00</p>
+</div>
+<!-- VS Icon -->
+<div class="flex-shrink-0 relative flex justify-center items-center h-12 w-12 z-10">
+<div class="absolute inset-0 bg-error/20 rounded-full blur-md"></div>
+<span class="font-headline font-black text-error text-xl relative z-10 italic">VS</span>
+</div>
+<!-- Right Event -->
+<div class="flex-1 w-full bg-surface-container-low p-4 rounded-lg ghost-border relative">
+<div class="absolute top-0 right-0 w-1 h-full bg-error rounded-r-lg"></div>
+<p class="font-mono text-[10px] text-slate-400 mb-1 text-right">EVENT OMEGA</p>
+<h3 class="font-headline font-bold text-lg text-white mb-2 text-right">Project: Linear Algebra</h3>
+<p class="font-mono text-xs text-slate-300 text-right">Feb 04 // 14:00 - 16:00</p>
+</div>
+</div>
+<!-- Description -->
+<div class="bg-surface-container-lowest/50 p-4 border-l-2 border-primary/50 text-sm font-body text-slate-300">
+<span class="font-mono text-primary mr-2">ANALYSIS:</span>Both assessments scheduled for identical operational window. Cumulative cognitive workload estimated at <span class="text-error font-bold font-mono">9.8/10</span>. High probability of performance degradation.
+                        </div>
+<!-- Actions -->
+<div class="flex flex-wrap gap-3 mt-2 justify-end">
+<button class="px-5 py-2.5 bg-transparent ghost-border text-on-surface font-mono text-xs uppercase tracking-widest rounded-sm hover:border-white/20 hover:shadow-[0_0_15px_rgba(6,182,212,0.15)] transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">calendar_month</span>
+                                Reschedule
+                            </button>
+<button class="px-5 py-2.5 bg-transparent ghost-border text-on-surface font-mono text-xs uppercase tracking-widest rounded-sm hover:border-white/20 hover:shadow-[0_0_15px_rgba(6,182,212,0.15)] transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">forward</span>
+                                Delegate
+                            </button>
+<button class="px-6 py-2.5 bg-gradient-to-br from-error to-error-container text-white font-mono text-xs uppercase tracking-widest rounded-sm hover:shadow-[0_0_20px_rgba(255,180,171,0.3)] transition-all shimmer-hover">
+                                Accept Risk
+                            </button>
+</div>
+</article>
+<!-- Conflict Card 2 (Warning) -->
+<article class="glass-panel ghost-border rounded-xl p-6 flex flex-col gap-6 relative opacity-70 hover:opacity-100 transition-opacity">
+<!-- Top Badge -->
+<div class="flex justify-between items-start">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-secondary/10 text-secondary font-mono text-[10px] uppercase tracking-widest rounded-sm">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                WARNING // LOGISTICAL STRAIN
+                            </div>
+<span class="font-mono text-slate-500 text-xs">ID: CNF-114B</span>
+</div>
+<!-- Description ONLY layout for variation -->
+<div class="flex flex-col gap-2">
+<h3 class="font-headline font-bold text-xl text-white">Transit Margin Deficit</h3>
+<p class="font-body text-sm text-slate-400">Scheduled gap between 'Lab Sec 4' and 'Team Sync' is 10 minutes. Estimated transit time: 15 minutes. Recommend adjustment.</p>
+</div>
+<!-- Actions -->
+<div class="flex flex-wrap gap-3 mt-2">
+<button class="px-5 py-2 bg-surface-container-high ghost-border text-on-surface font-mono text-xs uppercase tracking-widest rounded-sm hover:bg-surface-bright transition-all">
+                                Adjust Buffer
+                            </button>
+<button class="px-5 py-2 text-slate-500 font-mono text-xs uppercase tracking-widest hover:text-white transition-colors">
+                                Ignore
+                            </button>
+</div>
+</article>
+</div>
+</div>
+<!-- Right Column: Sidebar Widget -->
+<aside class="w-full lg:w-80 xl:w-96 flex-shrink-0 flex flex-col gap-6">
+<div class="glass-panel ghost-border rounded-xl p-6 flex flex-col gap-6 sticky top-24">
+<div class="flex items-center gap-3 pb-4 border-b border-white/5">
+<span class="material-symbols-outlined text-secondary" data-icon="monitoring">monitoring</span>
+<h3 class="font-headline font-bold text-lg text-white uppercase tracking-tight">Resolution Impact</h3>
+</div>
+<!-- Metric Row 1 -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-end">
+<span class="font-mono text-xs text-slate-400">Predicted Readiness Score</span>
+<span class="font-mono text-xl font-bold text-error">42%</span>
+</div>
+<div class="w-full h-1 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-error w-[42%] shadow-[0_0_10px_rgba(255,180,171,0.5)]"></div>
+</div>
+<p class="font-mono text-[10px] text-slate-500 text-right mt-1">CRITICAL THRESHOLD: &lt;50%</p>
+</div>
+<!-- Metric Row 2 -->
+<div class="flex flex-col gap-2 mt-4">
+<div class="flex justify-between items-end">
+<span class="font-mono text-xs text-slate-400">Cumulative Workload</span>
+<span class="font-mono text-xl font-bold text-primary">8.5<span class="text-xs text-slate-500 font-normal">/10</span></span>
+</div>
+<div class="w-full h-1 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[85%] shadow-[0_0_10px_rgba(210,187,255,0.5)]"></div>
+</div>
+</div>
+<div class="mt-4 p-4 bg-surface-container-low rounded-lg ghost-border">
+<p class="font-mono text-xs text-slate-300 leading-relaxed">
+<span class="text-secondary">&gt;</span> Current schedule geometry suggests high probability of task failure. Resolving CNF-892A will improve Readiness Score by an estimated <span class="text-secondary font-bold">+35%</span>.
+                        </p>
+</div>
+<!-- Decorative elements -->
+<div class="flex justify-between items-center mt-4 opacity-30">
+<div class="w-12 h-1 border-b-2 border-dashed border-slate-500"></div>
+<span class="material-symbols-outlined text-[16px] text-slate-500">memory</span>
+<div class="w-12 h-1 border-b-2 border-dashed border-slate-500"></div>
+</div>
+</div>
+</aside>
+</main>
+</div>
+</body></html>

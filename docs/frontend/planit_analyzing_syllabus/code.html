@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Processing Data - planIT</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#03b5d3",
+                        "on-tertiary-fixed-variant": "#003ea8",
+                        "on-secondary-fixed": "#001f26",
+                        "primary": "#d2bbff",
+                        "surface-dim": "#11131d",
+                        "surface-container": "#1e1f29",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "surface-container-high": "#282934",
+                        "outline-variant": "#4a4455",
+                        "surface-container-highest": "#33343f",
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "background": "#11131d",
+                        "tertiary-fixed": "#dbe1ff",
+                        "on-surface": "#e2e1f0",
+                        "on-tertiary-fixed": "#00174b",
+                        "tertiary-container": "#185ce4",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "tertiary": "#b4c5ff",
+                        "surface-container-low": "#1a1b25",
+                        "inverse-primary": "#732ee4",
+                        "secondary-fixed": "#acedff",
+                        "on-secondary-container": "#00424e",
+                        "on-primary-fixed": "#25005a",
+                        "error": "#ffb4ab",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#690005",
+                        "surface-tint": "#d2bbff",
+                        "inverse-surface": "#e2e1f0",
+                        "secondary": "#4cd7f6",
+                        "primary-container": "#7c3aed",
+                        "primary-fixed": "#eaddff",
+                        "on-tertiary-container": "#e0e5ff",
+                        "primary-fixed-dim": "#d2bbff",
+                        "on-tertiary": "#002a78",
+                        "surface": "#11131d",
+                        "inverse-on-surface": "#2f303b",
+                        "on-primary-container": "#ede0ff",
+                        "on-primary": "#3f008e",
+                        "surface-bright": "#373844",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#ccc3d8",
+                        "surface-container-lowest": "#0c0e17",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "surface-variant": "#33343f",
+                        "on-secondary": "#003640",
+                        "on-background": "#e2e1f0",
+                        "outline": "#958da1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "display": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                        "syne": ["Syne", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;800&amp;family=JetBrains+Mono:wght@400;700&amp;family=Space+Grotesk:wght@400;700&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .aurora-bg {
+            background-color: #05060F;
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(124, 58, 237, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            z-index: 10;
+        }
+        .scan-line {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: linear-gradient(to bottom, transparent 50%, rgba(255, 255, 255, 0.02) 51%, transparent 51%);
+            background-size: 100% 4px;
+            z-index: 11;
+        }
+
+        /* Gyroscope Spinner Static Simulation */
+        .gyro-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            perspective: 1000px;
+        }
+        .gyro-ring {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid transparent;
+        }
+        .ring-1 {
+            border-top-color: #7C3AED;
+            border-bottom-color: #7C3AED;
+            transform: rotateX(60deg) rotateY(0deg) rotateZ(45deg);
+        }
+        .ring-2 {
+            border-left-color: #06B6D4;
+            border-right-color: #06B6D4;
+            transform: rotateX(45deg) rotateY(60deg) rotateZ(0deg);
+            width: 90%;
+            height: 90%;
+            top: 5%;
+            left: 5%;
+        }
+        .ring-3 {
+            border-top-color: #2563EB;
+            border-bottom-color: #2563EB;
+            transform: rotateX(75deg) rotateY(30deg) rotateZ(90deg);
+            width: 80%;
+            height: 80%;
+            top: 10%;
+            left: 10%;
+        }
+        .core {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: #7C3AED;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.8);
+        }
+
+        .typewriter-text::after {
+            content: '|';
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="aurora-bg text-on-background font-body min-h-screen flex items-center justify-center overflow-hidden">
+<div class="noise-overlay"></div>
+<div class="scan-line"></div>
+<!-- Center Stack -->
+<main class="relative z-20 flex flex-col items-center justify-center w-full max-w-lg px-6">
+<!-- 1. Orbital Spinner -->
+<div class="gyro-container mb-12">
+<div class="gyro-ring ring-1"></div>
+<div class="gyro-ring ring-2"></div>
+<div class="gyro-ring ring-3"></div>
+<div class="core"></div>
+</div>
+<!-- 2. Typewriter Text -->
+<div class="mb-8 h-8 flex items-center justify-center">
+<h2 class="font-mono text-secondary text-lg font-medium tracking-widest uppercase typewriter-text shadow-[0_0_20px_rgba(6,182,212,0.2)] bg-surface-container-low/50 backdrop-blur-md px-6 py-2 rounded-full border border-white/[0.05]">
+                Scoring deadlines...
+            </h2>
+</div>
+<!-- 3. Progress Bar -->
+<div class="w-full h-1 bg-surface-container-highest rounded-full overflow-hidden mb-6 relative shadow-[0_0_30px_rgba(124,58,237,0.1)]">
+<div class="absolute top-0 left-0 h-full w-[64%] bg-gradient-to-r from-primary-container via-secondary to-tertiary-container rounded-full"></div>
+<div class="absolute top-0 right-0 h-full w-[36%] bg-surface-container-highest"></div>
+<!-- Glint effect on progress bar -->
+<div class="absolute top-0 left-[60%] h-full w-4 bg-white/40 blur-[2px]"></div>
+</div>
+<!-- 4. Metadata -->
+<div class="flex items-center justify-between w-full text-[11px] font-mono text-on-surface-variant/60 tracking-widest uppercase bg-surface-container-lowest/80 backdrop-blur-xl px-4 py-3 rounded-lg border border-white/[0.03]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">description</span>
+<span>cs101_syllabus_sp24.pdf</span>
+</div>
+<span>·</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">sd_storage</span>
+<span>2.4MB</span>
+</div>
+<span>·</span>
+<div class="flex items-center gap-2 text-primary/70">
+<span class="material-symbols-outlined text-[14px]">memory</span>
+<span>gpt-4o-mini</span>
+</div>
+</div>
+</main>
+</body></html>

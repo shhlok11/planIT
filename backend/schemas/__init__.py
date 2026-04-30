@@ -23,6 +23,15 @@ from schemas.preferences import (
     UserPreferenceCreate,
     UserPreferenceRead,
 )
+from schemas.plan import (
+    PlanConflictsResponse,
+    PlanCoursesResponse,
+    PlanCreate,
+    PlanPriorityScoresResponse,
+    PlanRead,
+    PlanScheduleResponse,
+    PlanUploadRead,
+)
 from schemas.priority import (
     PriorityScoreComponents,
     PriorityScoreRead,

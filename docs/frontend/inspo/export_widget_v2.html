@@ -1,0 +1,181 @@
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.wrap { display: flex; justify-content: center; padding: 2rem 1rem; background: var(--color-background-secondary); border-radius: var(--border-radius-lg); }
+.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1.5rem; width: 100%; max-width: 320px; }
+.card-title { font-size: 15px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; font-family: var(--font-sans); }
+.card-sub { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 1.25rem; font-family: var(--font-sans); }
+.section-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: 0.05em; margin-bottom: 8px; font-family: var(--font-sans); }
+.seg { display: flex; background: var(--color-background-secondary); border-radius: 10px; padding: 3px; gap: 3px; margin-bottom: 1.25rem; }
+.seg-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 0; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; background: transparent; color: var(--color-text-secondary); transition: background 0.15s, color 0.15s; font-family: var(--font-sans); }
+.seg-btn.active { background: var(--color-background-primary); color: var(--color-text-primary); border: 0.5px solid var(--color-border-tertiary); }
+
+.mode-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 12px 14px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); }
+.mode-label-wrap { display: flex; flex-direction: column; gap: 2px; }
+.mode-label { font-size: 13px; font-weight: 500; color: var(--color-text-primary); font-family: var(--font-sans); }
+.mode-desc { font-size: 11px; color: var(--color-text-secondary); font-family: var(--font-sans); }
+
+.theme-toggle { position: relative; width: 72px; height: 34px; border-radius: 17px; cursor: pointer; border: none; transition: background 0.3s; overflow: hidden; }
+.theme-toggle.dark-on { background: #1a1a1a; }
+.theme-toggle.light-on { background: #f0ebe0; }
+.knob { position: absolute; top: 4px; width: 26px; height: 26px; border-radius: 50%; transition: left 0.25s cubic-bezier(.4,0,.2,1), background 0.25s; display: flex; align-items: center; justify-content: center; }
+.knob.dark-on { left: 42px; background: #2c2c2a; }
+.knob.light-on { left: 4px; background: white; }
+.icon-slot { position: absolute; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; }
+.icon-moon { left: 10px; }
+.icon-sun { right: 10px; }
+
+.export-btn { width: 100%; padding: 11px; border-radius: var(--border-radius-md); font-size: 14px; font-weight: 500; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s, transform 0.1s; font-family: var(--font-sans); margin-top: 1.25rem; }
+.export-btn:active { transform: scale(0.98); }
+.export-btn.pdf { background: #1a1a1a; color: white; }
+.export-btn.ics { background: #185FA5; color: white; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 0.5px solid var(--color-border-tertiary); }
+.toggle-row:last-of-type { border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 1.25rem; }
+.toggle-info { display: flex; align-items: center; gap: 8px; }
+.toggle-label { font-size: 13px; color: var(--color-text-primary); font-family: var(--font-sans); }
+.toggle-desc { font-size: 11px; color: var(--color-text-secondary); font-family: var(--font-sans); }
+.pill { position: relative; width: 40px; height: 22px; border-radius: 11px; cursor: pointer; border: none; flex-shrink: 0; transition: background 0.2s; }
+.pill::after { content: ''; position: absolute; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: white; transition: left 0.2s; }
+.pill.off { background: var(--color-border-secondary, #ccc); }
+.pill.off::after { left: 3px; }
+.pill.on-blue { background: #185FA5; }
+.pill.on-blue::after { left: 21px; }
+
+.check { display: none; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: var(--color-text-success); margin-top: 10px; font-family: var(--font-sans); }
+.check.show { display: flex; }
+</style>
+
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden">Export widget with PDF dark/light toggle and ICS calendar</h2>
+
+<div class="wrap">
+  <div class="card">
+    <p class="card-title">Export</p>
+    <p class="card-sub">Choose a format to get started</p>
+
+    <p class="section-label">Format</p>
+    <div class="seg">
+      <button class="seg-btn active" id="btn-pdf" onclick="setFormat('pdf')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="1" width="8" height="12" rx="1.5"/><path d="M5 1v3h5"/><path d="M4 7.5h4"/><path d="M4 9.5h3"/>
+        </svg>
+        PDF
+      </button>
+      <button class="seg-btn" id="btn-ics" onclick="setFormat('ics')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="2.5" width="12" height="10" rx="1.5"/><line x1="1" y1="6" x2="13" y2="6"/><line x1="4.5" y1="1" x2="4.5" y2="4"/><line x1="9.5" y1="1" x2="9.5" y2="4"/>
+          <circle cx="4.5" cy="9" r="0.9" fill="currentColor"/><circle cx="7" cy="9" r="0.9" fill="currentColor"/><circle cx="9.5" cy="9" r="0.9" fill="currentColor"/>
+        </svg>
+        ICS
+      </button>
+    </div>
+
+    <div id="pdf-options">
+      <p class="section-label">Appearance</p>
+      <div class="mode-row">
+        <div class="mode-label-wrap">
+          <span class="mode-label" id="mode-label">Dark mode</span>
+          <span class="mode-desc" id="mode-desc">Black background</span>
+        </div>
+        <button class="theme-toggle dark-on" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark/light mode">
+          <div class="icon-slot icon-moon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1.5a5.5 5.5 0 1 0 5.5 5.5A4 4 0 0 1 7 1.5z" fill="white"/>
+              <circle cx="9.5" cy="3" r="1" fill="white" opacity="0.7"/>
+              <circle cx="11" cy="5.5" r="0.7" fill="white" opacity="0.5"/>
+            </svg>
+          </div>
+          <div class="icon-slot icon-sun">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="7" cy="7" r="3" stroke="#b09060" stroke-width="1.4"/>
+              <line x1="7" y1="1" x2="7" y2="2.5" stroke="#b09060" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="7" y1="11.5" x2="7" y2="13" stroke="#b09060" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="1" y1="7" x2="2.5" y2="7" stroke="#b09060" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="11.5" y1="7" x2="13" y2="7" stroke="#b09060" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="2.9" y1="2.9" x2="4" y2="4" stroke="#b09060" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="10" y1="10" x2="11.1" y2="11.1" stroke="#b09060" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="10" y1="4" x2="11.1" y2="2.9" stroke="#b09060" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="2.9" y1="11.1" x2="4" y2="10" stroke="#b09060" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="knob dark-on" id="knob"></div>
+        </button>
+      </div>
+      <button class="export-btn pdf" onclick="doExport()">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7.5 1v8M4.5 6l3 3 3-3"/><path d="M2 11v1.5A1.5 1.5 0 0 0 3.5 14h8a1.5 1.5 0 0 0 1.5-1.5V11"/>
+        </svg>
+        Export PDF
+      </button>
+    </div>
+
+    <div id="ics-options" style="display:none">
+      <div class="toggle-row" style="border-top:none; padding-top:0;">
+        <div class="toggle-info">
+          <div style="width:28px;height:28px;border-radius:8px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="2.5" width="12" height="10" rx="1.5" stroke="#185FA5" stroke-width="1.3"/>
+              <line x1="1" y1="5.5" x2="13" y2="5.5" stroke="#185FA5" stroke-width="1.3"/>
+              <line x1="4.5" y1="1" x2="4.5" y2="4" stroke="#185FA5" stroke-width="1.3" stroke-linecap="round"/>
+              <line x1="9.5" y1="1" x2="9.5" y2="4" stroke="#185FA5" stroke-width="1.3" stroke-linecap="round"/>
+              <circle cx="4.5" cy="8.5" r="0.9" fill="#185FA5"/><circle cx="7" cy="8.5" r="0.9" fill="#185FA5"/><circle cx="9.5" cy="8.5" r="0.9" fill="#185FA5"/>
+              <circle cx="4.5" cy="11" r="0.9" fill="#185FA5"/><circle cx="7" cy="11" r="0.9" fill="#185FA5"/>
+            </svg>
+          </div>
+          <div>
+            <div class="toggle-label">Include reminders</div>
+            <div class="toggle-desc">15 min before each event</div>
+          </div>
+        </div>
+        <button class="pill on-blue" id="toggle-reminder" onclick="this.classList.toggle('on-blue'); this.classList.toggle('off');"></button>
+      </div>
+      <button class="export-btn ics" onclick="doExport()">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7.5 1v8M4.5 6l3 3 3-3"/><path d="M2 11v1.5A1.5 1.5 0 0 0 3.5 14h8a1.5 1.5 0 0 0 1.5-1.5V11"/>
+        </svg>
+        Export ICS
+      </button>
+    </div>
+
+    <div class="check" id="done">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7.5l3.5 3.5 6.5-7"/></svg>
+      File ready to download
+    </div>
+  </div>
+</div>
+
+<script>
+let isDark = true;
+
+function setFormat(f) {
+  document.getElementById('btn-pdf').classList.toggle('active', f === 'pdf');
+  document.getElementById('btn-ics').classList.toggle('active', f === 'ics');
+  document.getElementById('pdf-options').style.display = f === 'pdf' ? '' : 'none';
+  document.getElementById('ics-options').style.display = f === 'ics' ? '' : 'none';
+  document.getElementById('done').classList.remove('show');
+}
+
+function toggleTheme() {
+  isDark = !isDark;
+  const t = document.getElementById('theme-toggle');
+  const k = document.getElementById('knob');
+  const lbl = document.getElementById('mode-label');
+  const desc = document.getElementById('mode-desc');
+  if (isDark) {
+    t.className = 'theme-toggle dark-on';
+    k.className = 'knob dark-on';
+    lbl.textContent = 'Dark mode';
+    desc.textContent = 'Black background';
+  } else {
+    t.className = 'theme-toggle light-on';
+    k.className = 'knob light-on';
+    lbl.textContent = 'Light mode';
+    desc.textContent = 'White background';
+  }
+}
+
+function doExport() {
+  const done = document.getElementById('done');
+  done.classList.remove('show');
+  setTimeout(() => done.classList.add('show'), 80);
+}
+</script>
